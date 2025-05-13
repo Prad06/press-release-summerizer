@@ -1,0 +1,44 @@
+# Python Environment
+.venv/
+
+# Configuration
+config/
+
+# Local configuration files
+extras/
+
+# Environment variables
+.env
+.envrc
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Airflow
+airflow.cfg
+airflow.db
+airflow-webserver.pid
+logs/
+unittests.cfg
+airflow/
+.pytest_cache/
+webserver_config.py
