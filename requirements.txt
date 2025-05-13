@@ -7,5 +7,5 @@ httplib2==0.22.0
 python-dotenv==1.1.0
 requests==2.32.3
 certifi==2025.4.26
-psycopg2==2.9.10
+psycopg2-binary==2.9.10
 sqlalchemy==2.0.40

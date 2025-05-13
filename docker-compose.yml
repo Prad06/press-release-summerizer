@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  watcher:
+    build: .
+    container_name: gmail-watcher
+    env_file: .env
+    volumes:
+      - ./config:/app/config:ro
+    restart: unless-stopped
