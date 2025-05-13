@@ -119,6 +119,16 @@ class PubSubService:
             logger.info(f"Gmail watch set up successfully for topic: {topic_path}")
             logger.info(f"Watch will expire in approximately {expiration_days:.1f} days")
             
+            history_id = response.get("historyId")
+            if history_id:
+                self.db_service.save_last_history_id(
+                    gmail_service.user_email,
+                    str(history_id)
+                )
+                logger.info(f"Stored initial historyId: {history_id}")
+            else:
+                logger.warning("Watch response did not contain a historyId.")
+
             return response
         except Exception as e:
             logger.error(f"Error setting up Gmail watch: {e}")
