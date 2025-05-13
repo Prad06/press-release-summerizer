@@ -3,6 +3,7 @@ import time
 import logging
 from google.cloud import pubsub_v1
 from google.oauth2 import service_account
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -142,52 +143,48 @@ class PubSubService:
         :param subscription_name: Subscription name (default: use self.subscription_name)
         """
         target_subscription = subscription_name or self.subscription_name
-        
+        executor = ThreadPoolExecutor(max_workers=10)
+
         try:
             subscriber = self.get_subscriber()
             if not subscriber:
                 logger.error("Failed to get subscriber client")
                 return
-                
+
             subscription_path = subscriber.subscription_path(self.project_id, target_subscription)
-            
+
             def callback(message):
-                try:
-                    # Log basic info
-                    logger.info(f"Received message: ID={message.message_id}")
-                    
-                    # Call the handler function
-                    success = handler_func(message)
-                    
-                    # Acknowledge or not based on success
-                    if success:
-                        message.ack()
-                        logger.info(f"Message {message.message_id} processed successfully")
-                    else:
+                def process_and_ack():
+                    try:
+                        logger.info(f"Received message: ID={message.message_id}")
+                        success = handler_func(message)
+                        if success:
+                            message.ack()
+                            logger.info(f"Message {message.message_id} processed successfully")
+                        else:
+                            message.nack()
+                            logger.warning(f"Failed to process message {message.message_id}. Will retry.")
+                    except Exception as e:
+                        logger.error(f"Error in message callback: {e}")
                         message.nack()
-                        logger.warning(f"Failed to process message {message.message_id}. Will retry.")
-                except Exception as e:
-                    logger.error(f"Error in message callback: {e}")
-                    message.nack()
-            
-            # Set up streaming pull
+
+                executor.submit(process_and_ack)
+
             streaming_pull_future = subscriber.subscribe(subscription_path, callback=callback)
             logger.info(f"Listening for messages on {subscription_path}...")
-            logger.info(f"[Waiting for new messages... Press Ctrl+C to exit]")
-            
-            # Keep the main thread from exiting
+
             try:
-                # Block indefinitely
                 streaming_pull_future.result()
             except KeyboardInterrupt:
-                logger.info("\nStopping listener due to keyboard interrupt")
+                logger.info("Stopping listener due to keyboard interrupt")
                 streaming_pull_future.cancel()
             except Exception as e:
                 logger.error(f"Exception during message listening: {e}")
                 streaming_pull_future.cancel()
-                
+
         except Exception as e:
             logger.error(f"Error in listen_for_messages: {e}")
+
     
     def parse_pubsub_message(self, message):
         """
