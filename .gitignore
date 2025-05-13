@@ -42,6 +42,5 @@ airflow.db
 airflow-webserver.pid
 logs/
 unittests.cfg
-airflow/
 .pytest_cache/
 webserver_config.py

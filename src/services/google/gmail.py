@@ -56,14 +56,23 @@ class GmailService:
             logger.error(f"Error listing messages: {e}")
             return None
 
-    def get_message(self, message_id):
-        """Get a full Gmail message by its ID."""
+    def get_message(self, message_id, format=None):
+        """
+        Get a Gmail message by its ID.
+        
+        :param message_id: The ID of the message to retrieve
+        :param format: Optional format (None for default, 'eml' or 'raw' for raw email content)
+        :return: Gmail message object or raw content
+        """
         service = self.get_service()
         if not service:
             return None
 
         try:
-            return service.users().messages().get(userId='me', id=message_id).execute()
+            if format and format.lower() in ['eml', 'raw']:
+                return service.users().messages().get(userId='me', id=message_id, format='raw').execute()
+            else:
+                return service.users().messages().get(userId='me', id=message_id).execute()
         except Exception as e:
             logger.error(f"Error getting message {message_id}: {e}")
             return None

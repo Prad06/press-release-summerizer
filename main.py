@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from src.services.watcher import WatcherService
 
 # Load environment variables ONCE at entry point
-load_dotenv()
+load_dotenv(override=True)
 
 # Configure logging
 logging.basicConfig(
