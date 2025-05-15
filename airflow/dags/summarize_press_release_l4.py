@@ -287,7 +287,7 @@ def save_outputs(base_path, msg_id, metadata, summaries, release_timestamp, pdf_
     final_json = {
         "release_timestamp": release_timestamp,
         "email_delivery_time": convert_to_eastern(metadata["email_delivery_time"]),
-        "retrieved_timestamp": metadata["retrieved_timestamp"],
+        "retrieved_timestamp": convert_to_eastern(metadata["retrieved_timestamp"]),
         "summary_ts": summary_ts,
         "email_sender": metadata["email_sender"],
         "email_subject": metadata["email_subject"],
