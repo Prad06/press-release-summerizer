@@ -18,115 +18,106 @@ logger = logging.getLogger(__name__)
 
 DATA_PATH = os.environ.get("DATA_PATH")
 
+
 def filter_candidate_links(**context):
     """
-    Load parsed email JSON from {DATA_PATH}/l1/<message_id>/email.json
-    Remove non-content links (mailto, unsubscribe, socials, etc.)
-    Save filtered links to {DATA_PATH}/l2/<message_id>/links.json
-    
-    This function also applies heuristic scoring for potential fallback use later.
+    Parse L1 email JSONs to extract candidate press release links.
+
+    - Filters out non-content URLs (e.g., social, mailto, login).
+    - Scores filtered links using heuristics (e.g., URL patterns, subject keywords).
+    - Pushes filtered results to XCom with:
+        - filtered_links
+        - heuristic_best_link
+        - all_scored
+        - email_subject and text
     """
     message_ids = context["params"].get("message_ids", [])
-    
+    filtered_results = {}
+
     blacklist_keywords = [
         "mailto:", "unsubscribe", "privacy", "contact", "about", 
-        "facebook.com", "linkedin.com", "twitter.com", "instagram.com",
+        "facebook.com", "linkedin.com", "instagram.com",
         "youtube.com", "#", "login", "signin", "terms", "legal"
     ]
-    
-    # Common patterns in press release URLs for heuristic scoring
+
     press_patterns = [
         "/schedule", "/news-release-details", "/news-details", "/pressreleases",
         "/press-release", "/newsroom", "/investors", "/investor-relations",
     ]
-    
+
+    logger.info(f"Starting candidate link filtering for message IDs: {message_ids}")
+
     for msg_id in message_ids:
         try:
             input_path = f"{DATA_PATH}/l1/{msg_id}/email.json"
-            output_dir = f"{DATA_PATH}/l2/{msg_id}"
-            output_path = f"{output_dir}/links.json"
-            heuristic_path = f"{output_dir}/heuristic_scores.json"
-            
-            os.makedirs(output_dir, exist_ok=True)
             with open(input_path, "r") as f:
                 email_json = json.load(f)
                 links = email_json.get("links", [])
                 subject = email_json.get("subject", "")
-            
+
             if not links:
-                logger.warning(f"No links found in email {msg_id}")
+                logger.warning(f"[{msg_id}] No links found in email")
                 continue
-            
+
             filtered_links = []
             for link in links:
                 if not link or not isinstance(link, str):
                     continue
-
                 if any(keyword in link.lower() for keyword in blacklist_keywords):
                     continue
-                
                 filtered_links.append(link)
-            
-            with open(output_path, "w") as f:
-                json.dump(filtered_links, f, indent=2)
-            
-            # Apply heuristic scoring for potential fallback use
+
             scored_links = []
             for link in filtered_links:
                 score = 0
-                
-                # Boost for press release patterns
                 for pattern in press_patterns:
                     if pattern in link.lower():
                         score += 3
-                
-                # Boost for date-like patterns (YYYY/MM/DD or similar)
                 if any(char.isdigit() for char in link):
                     score += 1
-                
-                # Penalize long query parameters (often tracking or session info)
                 if "?" in link and len(link.split("?")[1]) > 20:
                     score -= 2
-                
-                # Boost for clean URLs
                 if "?" not in link:
                     score += 1
-                
-                # Check for keywords from subject
                 if subject:
                     words = [w.lower() for w in subject.split() if len(w) > 3]
                     for word in words:
                         if word in link.lower():
                             score += 1
                             break
-                
                 scored_links.append({"url": link, "score": score})
-            
-            # Sort by score, and if scores are the same, prefer the longer link
+
             scored_links.sort(key=lambda x: (x["score"], len(x["url"])), reverse=True)
-            
-            # Save heuristic scores for potential fallback
             best_heuristic_link = scored_links[0]["url"] if scored_links else None
-            
-            heuristic_result = {
+
+            filtered_results[msg_id] = {
+                "filtered_links": filtered_links,
                 "heuristic_best_link": best_heuristic_link,
-                "all_scored": scored_links
+                "all_scored": scored_links,
+                "subject": subject,
+                "email_subject": subject,
+                "email_text": email_json.get("text_body", "")
             }
-            
-            with open(heuristic_path, "w") as f:
-                json.dump(heuristic_result, f, indent=2)
-            
-            logger.info(f"Filtered links for {msg_id}: {len(filtered_links)} of {len(links)} passed filtering")
-            logger.info(f"Heuristic best link for {msg_id}: {best_heuristic_link}")
-            
+
+            logger.info(f"[{msg_id}] Filtered {len(filtered_links)} of {len(links)} links")
+            logger.info(f"[{msg_id}] Heuristic top link: {best_heuristic_link}")
+
         except Exception as e:
-            logger.error(f"Link filtering failed for {msg_id}: {e}")
+            logger.error(f"[{msg_id}] Failed during link filtering: {e}")
+
+    context["ti"].xcom_push(key="filtered_results", value=filtered_results)
+
 
 def select_best_link_llm(**context):
     """
-    Use LLM to pick the best link pointing to the press release.
-    Save chosen link to {DATA_PATH}/l3/<message_id>/selected_link.json
-    Save LLM response to {DATA_PATH}/l2/<message_id>/llm_response.json for debugging.
+    Use an LLM to select the most likely press release link from filtered links.
+
+    - Uses GPT to choose best match if multiple links.
+    - Falls back to heuristics or first link if LLM fails.
+    - Saves:
+        - selected_link
+        - llm_response
+        - selection_method
     """
     config = ChatConfig(
         model="gpt-3.5-turbo",
@@ -135,31 +126,27 @@ def select_best_link_llm(**context):
     )
     chat = Chat(config)
 
-    message_ids = context["params"].get("message_ids", [])
+    filtered_results = context["ti"].xcom_pull(
+        key="filtered_results", task_ids="filter_candidate_links"
+    )
+
+    if not filtered_results:
+        logger.warning("No filtered results found from previous task.")
+        return
+
+    final_results = {}
     successful_message_links = {}
 
-    for msg_id in message_ids:
+    for msg_id, data in filtered_results.items():
         try:
-            input_links_path = f"{DATA_PATH}/l2/{msg_id}/links.json"
-            input_email_path = f"{DATA_PATH}/l1/{msg_id}/email.json"
-            output_dir = f"{DATA_PATH}/l2/{msg_id}"
-            output_path = f"{output_dir}/selected_link.json"
-            llm_response_path = f"{output_dir}/llm_response.json"
-
-            os.makedirs(output_dir, exist_ok=True)
-
-            with open(input_links_path, "r") as f:
-                filtered_links = json.load(f)
+            filtered_links = data.get("filtered_links", [])
+            email_subject = data.get("email_subject", "")
+            email_text = data.get("email_text", "")
+            email_snippet = email_text[:300] + ("..." if len(email_text) > 300 else "")
 
             if not filtered_links:
-                logger.warning(f"No filtered links found for {msg_id}")
+                logger.warning(f"[{msg_id}] No filtered links to evaluate")
                 continue
-
-            with open(input_email_path, "r") as f:
-                email_data = json.load(f)
-                email_subject = email_data.get("subject", "")
-                email_text = email_data.get("text", "")
-                email_snippet = email_text[:300] + ("..." if len(email_text) > 300 else "")
 
             if len(filtered_links) == 1:
                 selected_link = filtered_links[0]
@@ -186,20 +173,16 @@ Links:
 {json.dumps(filtered_links, indent=2)}
 
 Return ONLY the full URL of the most likely press release link, with no explanation.
-If none of these links appear to be press releases, respond with exactly \"NO_PRESS_RELEASE_FOUND\".
+If none of these links appear to be press releases, respond with exactly "NO_PRESS_RELEASE_FOUND".
 """
-                try:
-                    response = chat.ask(system_msg, user_msg)
-                    response = response.strip()
 
-                    # Save LLM response for debugging
+                try:
+                    response = chat.ask(system_msg, user_msg).strip()
                     llm_response = {
                         "system_message": system_msg,
                         "user_message": user_msg,
                         "llm_response": response
                     }
-                    with open(llm_response_path, "w") as f:
-                        json.dump(llm_response, f, indent=2)
 
                     if response == "NO_PRESS_RELEASE_FOUND":
                         selected_link = filtered_links[0]
@@ -210,46 +193,91 @@ If none of these links appear to be press releases, respond with exactly \"NO_PR
                     else:
                         selected_link = filtered_links[0]
                         method = "unexpected_response"
+
                 except Exception as e:
-                    logger.error(f"LLM selection failed for {msg_id}: {e}")
+                    logger.error(f"[{msg_id}] LLM selection failed: {e}")
                     selected_link = filtered_links[0]
                     method = "error_fallback"
                     llm_response = {"error": str(e)}
 
-            result = {
+            final_results[msg_id] = {
                 "selected_link": selected_link,
                 "selection_method": method,
-                "all_candidates": filtered_links
+                "all_candidates": filtered_links,
+                "llm_response": llm_response,
+                "heuristic_data": {
+                    "best_link": data.get("heuristic_best_link"),
+                    "scored_links": data.get("all_scored")
+                }
             }
 
-            with open(output_path, "w") as f:
-                json.dump(result, f, indent=2)
-
-            # Add successful message ID and link to the dictionary
             successful_message_links[msg_id] = selected_link
-
-            logger.info(f"Selected link for {msg_id}: {selected_link} (method: {method})")
+            logger.info(f"[{msg_id}] Selected link: {selected_link} (method: {method})")
 
         except Exception as e:
-            logger.error(f"Link selection failed for {msg_id}: {e}")
+            logger.error(f"[{msg_id}] Error during link selection: {e}")
 
-    # Save successful message links to context for the next task
+    context["ti"].xcom_push(key="final_results", value=final_results)
     context["ti"].xcom_push(key="successful_message_links", value=successful_message_links)
-    logger.info(f"Successful message links: {successful_message_links}")
+    logger.info(f"Total selected links: {len(successful_message_links)}")
+
+
+def write_results_to_disk(**context):
+    """
+    Write selected link results and LLM debug info to disk.
+
+    - Output folder: {DATA_PATH}/l2/<message_id>/
+    - Files:
+        - selected_link.json
+        - debug_info.json
+    """
+    final_results = context["ti"].xcom_pull(
+        key="final_results", task_ids="select_best_link_llm"
+    )
+
+    if not final_results:
+        logger.warning("No final results to write.")
+        return
+
+    for msg_id, data in final_results.items():
+        try:
+            l2_dir = f"{DATA_PATH}/l2/{msg_id}"
+            os.makedirs(l2_dir, exist_ok=True)
+
+            selected_link_path = f"{l2_dir}/selected_link.json"
+            with open(selected_link_path, "w") as f:
+                json.dump({
+                    "selected_link": data["selected_link"],
+                    "selection_method": data["selection_method"],
+                    "all_candidates": data["all_candidates"]
+                }, f, indent=2)
+
+            debug_path = f"{l2_dir}/debug_info.json"
+            with open(debug_path, "w") as f:
+                json.dump(data, f, indent=2)
+
+            logger.info(f"[{msg_id}] Wrote selected_link and debug_info to disk")
+
+        except Exception as e:
+            logger.error(f"[{msg_id}] Failed to write results to disk: {e}")
 
 
 def trigger_l3_dag(**context):
-    """Trigger the L3 pipeline using successful_message_links from XCom"""
+    """
+    Trigger L3 DAG: extract_release_information_l3 using selected links.
+
+    - XCom input: successful_message_links
+    - Config: {message_links: {msg_id: selected_link}}
+    """
     logger.info("Starting trigger_l3_dag")
 
     try:
-        # Retrieve successful_message_links from XCom
         successful_message_links = context["ti"].xcom_pull(
             key="successful_message_links", task_ids="select_best_link_llm"
         )
 
         if not successful_message_links:
-            logger.warning("No valid successful_message_links found to trigger L3 DAG.")
+            logger.warning("No message links to trigger L3 DAG.")
             return
 
         conf = {"message_links": successful_message_links}
@@ -264,17 +292,20 @@ def trigger_l3_dag(**context):
 
         trigger_task.execute(context=context)
 
+        logger.info(f"L3 DAG triggered with message IDs: {list(successful_message_links.keys())}")
+
     except Exception as e:
-        logger.error(f"Error in trigger_l3_dag: {e}")
+        logger.error(f"Failed to trigger L3 DAG: {e}")
         raise
 
     finally:
         logger.info("Finished trigger_l3_dag")
 
-# Define the DAG
+
+# Define DAG
 with DAG(
     dag_id="find_news_release_link_l2",
-    description="Pipeline to find news release links in parsed emails",
+    description="Pipeline to identify the most likely press release link from parsed biotech emails",
     start_date=datetime(2025, 5, 12),
     schedule_interval=None,
     catchup=False,
@@ -296,6 +327,12 @@ with DAG(
         provide_context=True,
     )
 
+    write_results = PythonOperator(
+        task_id="write_results_to_disk",
+        python_callable=write_results_to_disk,
+        provide_context=True,
+    )
+
     trigger_l3_task = PythonOperator(
         task_id="trigger_l3_dag",
         python_callable=trigger_l3_dag,
@@ -304,4 +341,4 @@ with DAG(
 
     end = EmptyOperator(task_id="end")
 
-    start >> filter_links >> select_link >> trigger_l3_task >> end
+    start >> filter_links >> select_link >> write_results >> trigger_l3_task >> end
