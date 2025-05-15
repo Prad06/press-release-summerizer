@@ -41,10 +41,19 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Add Google Chrome repo and install
-RUN wget -q -O google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    apt-get install -y ./google-chrome.deb && \
-    rm google-chrome.deb
+# Install Chrome and ChromeDriver
+RUN apt-get update && \
+    apt-get install -y wget unzip curl gnupg --no-install-recommends && \
+    wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+    apt-get install -y ./google-chrome-stable_current_amd64.deb && \
+    rm google-chrome-stable_current_amd64.deb && \
+    CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+') && \
+    CHROMEDRIVER_VERSION=$(curl -sS "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" | grep -A10 "$CHROME_VERSION" | grep 'linux64' | grep 'chromedriver' | grep -oP 'https://[^"]+') && \
+    curl -sSL "$CHROMEDRIVER_VERSION" -o chromedriver_linux64.zip && \
+    unzip chromedriver_linux64.zip && \
+    mv chromedriver /usr/bin/chromedriver && \
+    chmod +x /usr/bin/chromedriver && \
+    rm chromedriver_linux64.zip
 
 USER airflow
 
