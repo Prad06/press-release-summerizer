@@ -46,17 +46,10 @@ RUN wget -q -O google-chrome.deb https://dl.google.com/linux/direct/google-chrom
     apt-get install -y ./google-chrome.deb && \
     rm google-chrome.deb
 
-# Install ChromeDriver using webdriver-manager via Python
-RUN python3 -c "\
-from webdriver_manager.chrome import ChromeDriverManager; \
-from shutil import copyfile; \
-import os; \
-path = ChromeDriverManager().install(); \
-copyfile(path, '/usr/bin/chromedriver'); \
-os.chmod('/usr/bin/chromedriver', 0o755)"
-
 USER airflow
 
 # Install Python deps
 COPY requirements.txt /tmp/
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+COPY plugins/install_chromedriver.py /tmp/install_chromedriver.py
