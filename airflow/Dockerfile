@@ -52,4 +52,4 @@ USER airflow
 COPY requirements.txt /tmp/
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-COPY plugins/install_chromedriver.py /tmp/install_chromedriver.py
+COPY scripts/install_chromedriver.py /tmp/install_chromedriver.py
