@@ -51,6 +51,10 @@ def save_l0(**context):
             eml_path = f"{DATA_PATH}/l0/{message_id}/email.eml"
             write_file(eml_path, raw_bytes)
 
+            retrieved_timestamp = datetime.now().astimezone().isoformat()
+            ts_path = f"{DATA_PATH}/l0/{message_id}/ts.json"
+            write_file(ts_path, json.dumps({"retrieved_timestamp": retrieved_timestamp}, indent=2).encode("utf-8"))
+
             logger.info(f"Saved L0 email to {eml_path}")
             successful_ids.append(message_id)
 

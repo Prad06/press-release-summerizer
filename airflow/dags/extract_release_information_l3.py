@@ -23,34 +23,23 @@ DATA_PATH = os.environ.get("DATA_PATH")
 def normalize_url(pdf_url: str, base_url: str = None) -> str:
     """
     Normalize URL by handling various formats and edge cases.
-    
-    Args:
-        pdf_url: The PDF URL to normalize
-        base_url: The base URL of the page where the PDF link was found
-        
-    Returns:
-        Normalized URL with proper scheme and structure
+
+    :param pdf_url: The URL to normalize.
+    :param base_url: The base URL to use for relative URLs.
+    :return: A normalized URL or None if the input is invalid.
     """
-    # Handle empty URLs
     if not pdf_url or pdf_url.isspace():
         return None
-        
-    # Clean whitespace
+
     pdf_url = pdf_url.strip()
-    
-    # Handle protocol-relative URLs (starting with //)
     if pdf_url.startswith("//"):
         return "https:" + pdf_url
-        
-    # Handle absolute URLs (already have http/https)
+
     if pdf_url.startswith(("http://", "https://")):
         return pdf_url
-        
-    # Handle relative URLs if we have a base URL
     if base_url:
         return urljoin(base_url, pdf_url)
-        
-    # Otherwise, assume it's a domain without protocol
+    
     return "https://" + pdf_url
 
 def extract_html_with_selenium(**context):
@@ -77,14 +66,14 @@ def extract_html_with_selenium(**context):
     driver = webdriver.Chrome(service=service, options=options)
 
     html_contents = {}
-    actual_urls = {}  # Store the actual URLs after any redirects
+    actual_urls = {}
 
     for msg_id, url in message_links.items():
         try:
             logger.info(f"Fetching HTML for {msg_id} from {url}")
             driver.get(url)
             html = driver.page_source
-            actual_url = driver.current_url  # Get the actual URL after any redirects
+            actual_url = driver.current_url
             
             html_contents[msg_id] = html
             actual_urls[msg_id] = actual_url
@@ -96,7 +85,6 @@ def extract_html_with_selenium(**context):
     driver.quit()
     logger.info("Selenium driver closed.")
     
-    # Push both HTML contents and actual URLs to XCom
     ti.xcom_push(key="html_contents", value=html_contents)
     ti.xcom_push(key="actual_urls", value=actual_urls)
     
@@ -144,7 +132,7 @@ def process_and_save_extractions(**context):
 
     for msg_id, html in (html_contents or {}).items():
         try:
-            base_url = actual_urls.get(msg_id, "")  # Get the actual URL from Selenium
+            base_url = actual_urls.get(msg_id, "")
             soup = BeautifulSoup(html, "html.parser")
             main_text = extract_main_text(html)
             pdf_links = extract_pdf_links(soup)
@@ -158,7 +146,6 @@ def process_and_save_extractions(**context):
             with open(f"{output_dir}/main_text.txt", "w", encoding="utf-8") as f:
                 f.write(main_text)
 
-            # Save both PDF links and the base URL
             with open(f"{output_dir}/pdf_links.json", "w") as f:
                 json.dump({"links": pdf_links, "base_url": base_url}, f, indent=2)
 
@@ -180,7 +167,7 @@ def process_and_save_extractions(**context):
 def extract_pdfs(**context):
     """
     Download and extract text from each PDF found in pdf_links.json.
-    Save full content and per-file summaries to disk.
+    Save full content and per-file summaries to the pdf_summary.json file.
     """
     logger.info("Starting extract_pdfs")
     ti = context["ti"]
@@ -189,7 +176,7 @@ def extract_pdfs(**context):
     for msg_id, meta in extraction_summary.items():
         try:
             output_dir = meta.get("output_dir")
-            base_url = meta.get("base_url", "")  # Get the base URL from the summary
+            base_url = meta.get("base_url", "")
             pdf_dir = os.path.join(output_dir, "pdfs")
             os.makedirs(pdf_dir, exist_ok=True)
 
@@ -201,22 +188,17 @@ def extract_pdfs(**context):
             with open(pdf_links_path, "r") as f:
                 pdf_data = json.load(f)
                 raw_links = pdf_data.get("links", [])
-                # Use the base URL from the JSON file or fall back to the one in the summary
                 base_url = pdf_data.get("base_url", base_url)
 
-            # Normalize all PDF links using the improved function and the actual base URL
             pdf_links = [normalize_url(url, base_url) for url in raw_links]
-            pdf_links = [url for url in pdf_links if url]  # Filter out None values
+            pdf_links = [url for url in pdf_links if url]
 
-            combined_text = []
             pdf_summary = []
 
             for idx, pdf_url in enumerate(pdf_links):
                 try:
                     filename = f"pdf_{idx + 1}.pdf"
-                    text_file = f"pdf_{idx + 1}_text.txt"
                     pdf_path = os.path.join(pdf_dir, filename)
-                    text_path = os.path.join(pdf_dir, text_file)
 
                     logger.info(f"Downloading {pdf_url}")
                     r = requests.get(pdf_url, stream=True, timeout=30)
@@ -228,16 +210,11 @@ def extract_pdfs(**context):
                     reader = PdfReader(pdf_path)
                     pages = [p.extract_text() or "" for p in reader.pages]
 
-                    with open(text_path, "w", encoding="utf-8") as tf:
-                        for i, page in enumerate(pages):
-                            tf.write(f"\n--- Page {i+1} ---\n{page.strip()}\n")
-
-                    combined_text.append("\n".join(pages))
-
                     pdf_summary.append({
                         "url": pdf_url,
                         "filename": filename,
                         "num_pages": len(pages),
+                        "text": pages,
                         "error": None
                     })
 
@@ -247,12 +224,9 @@ def extract_pdfs(**context):
                         "url": pdf_url,
                         "filename": None,
                         "num_pages": 0,
+                        "text": [],
                         "error": str(e)
                     })
-
-            if combined_text:
-                with open(os.path.join(pdf_dir, "pdf_text_combined.txt"), "w", encoding="utf-8") as f:
-                    f.write("\n\n".join(combined_text))
 
             with open(os.path.join(pdf_dir, "pdf_summary.json"), "w", encoding="utf-8") as f:
                 json.dump(pdf_summary, f, indent=2)
