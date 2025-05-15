@@ -58,7 +58,7 @@ x-airflow-common: &airflow-common
     - ./plugins:/opt/airflow/plugins
     - ../config:/opt/airflow/config
     - ../src:/opt/src
-    - ./downloads:/tmp
+    - ./downloads:/opt/airflow/tmp
   user: "${AIRFLOW_UID:-50000}:0"
   networks:
     - kcap-network
