@@ -5,7 +5,7 @@ on:
 
 jobs:
   deploy-vm:
-    name: Create Airflow VM & Firewall
+    name: Create VM & Update Firewall
     runs-on: ubuntu-latest
 
     steps:
