@@ -29,14 +29,13 @@ def extract_html_with_selenium(**context):
     message_links = context["params"].get("message_links", {})
     ti = context["ti"]
 
-    # Get Chrome binary and Chromedriver paths from environment variables
     chrome_path = os.environ.get("CHROME_BIN")
     chromedriver_path = os.environ.get("CHROMEDRIVER_BIN")
 
     logger.debug(f"Chrome binary path: {chrome_path}")
     logger.debug(f"Chromedriver binary path: {chromedriver_path}")
 
-    # Configure Selenium Chrome options
+    # Set up Chrome options
     options = Options()
     options.binary_location = chrome_path
     options.add_argument("--headless")
@@ -45,7 +44,8 @@ def extract_html_with_selenium(**context):
     options.add_argument("--window-size=1920,1080")
     options.add_argument("user-agent=Mozilla/5.0")
 
-    service = Service(ChromeDriverManager().install())
+    # Use system-installed ChromeDriver
+    service = Service(executable_path=chromedriver_path)
     driver = webdriver.Chrome(service=service, options=options)
 
     html_contents = {}
