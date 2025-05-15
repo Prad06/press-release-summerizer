@@ -38,5 +38,5 @@ jobs:
           --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
 
         echo ""
-        echo "External IP address for kcap-assessment-dev: $EXTERNAL_IP"
+        echo "External IP address for kcap-assessment-prod: $EXTERNAL_IP"
         echo "::set-output name=external_ip::$EXTERNAL_IP"

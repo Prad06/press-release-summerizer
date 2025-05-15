@@ -33,18 +33,6 @@ gcloud compute firewall-rules create allow-airflow-8080 \
     --target-tags=http-server
 
 echo "Waiting for VM to initialize..."
-sleep 90
-
-echo "Installing Docker, Docker Compose, and Google Chrome on VM..."
-gcloud compute ssh kcap-assessment-prod --zone=us-east1-c --command="bash -s" <<'ENDSSH'
-    sudo apt-get update
-    sudo apt-get install -y docker.io docker-compose unzip curl gnupg wget
-
-    wget -q -O google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-    sudo apt install -y ./google-chrome.deb
-    rm google-chrome.deb
-
-    sudo usermod -aG docker $USER
-ENDSSH
+sleep 45
 
 echo "VM and environment setup complete."
