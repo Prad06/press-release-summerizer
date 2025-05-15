@@ -13,11 +13,22 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 import requests
 from PyPDF2 import PdfReader
+from urllib.parse import urljoin
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 DATA_PATH = os.environ.get("DATA_PATH")
+
+def normalize_url(pdf_url: str) -> str:
+    """
+    Normalize URL by prepending https if missing a scheme.
+    """
+    if pdf_url.startswith("//"):
+        return "https:" + pdf_url
+    elif not pdf_url.startswith("http"):
+        return "https://" + pdf_url
+    return pdf_url
 
 def extract_html_with_selenium(**context):
     """
@@ -151,7 +162,9 @@ def extract_pdfs(**context):
                 continue
 
             with open(pdf_links_path, "r") as f:
-                pdf_links = json.load(f)
+                raw_links = json.load(f)
+
+            pdf_links = [normalize_url(url) for url in raw_links]
 
             combined_text = []
             pdf_summary = []
