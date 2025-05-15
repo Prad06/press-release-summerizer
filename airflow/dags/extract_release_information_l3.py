@@ -241,7 +241,7 @@ def trigger_l4_dag(**context):
         # Trigger the L4 DAG
         trigger_task = TriggerDagRunOperator(
             task_id="trigger_l4_task",
-            trigger_dag_id="summerize_press_release_l4",
+            trigger_dag_id="summarize_press_release_l4",
             conf=conf,
             wait_for_completion=True,
         )
