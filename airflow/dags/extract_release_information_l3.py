@@ -18,10 +18,11 @@ import pytz
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+DATA_PATH = os.environ.get("DATA_PATH")
 
 def extract_html_with_selenium(**context):
     """
-    Extract full HTML using Selenium and save to /tmp/l3/<message_id>/raw.html.
+    Extract full HTML using Selenium and save to {DATA_PATH}/l3/<message_id>/raw.html.
     """
     logger.info("Starting extract_html_with_selenium function")
     message_links = context["params"].get("message_links", {})
@@ -57,7 +58,7 @@ def extract_html_with_selenium(**context):
             html_contents[msg_id] = html
 
             # Create output directory for the message ID
-            output_dir = f"/tmp/l3/{msg_id}"
+            output_dir = f"{DATA_PATH}/l3/{msg_id}"
             os.makedirs(output_dir, exist_ok=True)
 
             logger.info(f"Successfully fetched HTML for {msg_id}")
@@ -189,7 +190,7 @@ def process_and_save_extractions(**context):
     # Save results to disk
     for msg_id, results in all_results.items():
         try:
-            output_dir = f"/tmp/l3/{msg_id}"
+            output_dir = f"{DATA_PATH}/l3/{msg_id}"
 
             with open(f"{output_dir}/raw.html", "w", encoding="utf-8") as f:
                 f.write(results["raw_html"])

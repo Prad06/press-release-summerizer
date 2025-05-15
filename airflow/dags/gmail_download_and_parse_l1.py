@@ -18,6 +18,8 @@ from parsers.email import parse_eml_to_model
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+DATA_PATH = os.getenv("DATA_PATH")
+
 def write_file(path: str, data: bytes, mode: str = "wb"):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, mode) as f:
@@ -26,7 +28,7 @@ def write_file(path: str, data: bytes, mode: str = "wb"):
 
 def save_l0(**context):
     """
-    Fetch raw emails and save to /tmp/l0/<message_id>/email.eml.
+    Fetch raw emails and save to {DATA_PATH}/l0/<message_id>/email.eml.
     Push successful message_ids to XCom under 'l0_successful_ids'.
     """
     email_address = context["params"]["email_address"]
@@ -46,7 +48,7 @@ def save_l0(**context):
                 raise ValueError("No raw content in email.")
 
             raw_bytes = base64.urlsafe_b64decode(email["raw"])
-            eml_path = f"/tmp/l0/{message_id}/email.eml"
+            eml_path = f"{DATA_PATH}/l0/{message_id}/email.eml"
             write_file(eml_path, raw_bytes)
 
             logger.info(f"Saved L0 email to {eml_path}")
@@ -59,7 +61,7 @@ def save_l0(**context):
 
 def parse_and_save_l1(**context):
     """
-    Read .eml files from /tmp/l0 and save JSON to /tmp/l1/<message_id>/email.json.
+    Read .eml files from {DATA_PATH}/l0 and save JSON to {DATA_PATH}/l1/<message_id>/email.json.
     Push successful message_ids to XCom under 'l1_successful_ids'.
     """
     ti = context["ti"]
@@ -69,13 +71,13 @@ def parse_and_save_l1(**context):
 
     for message_id in l0_successful_ids:
         try:
-            eml_path = f"/tmp/l0/{message_id}/email.eml"
+            eml_path = f"{DATA_PATH}/l0/{message_id}/email.eml"
             with open(eml_path, "rb") as f:
                 raw_bytes = f.read()
 
             parsed = parse_eml_to_model(raw_bytes)
 
-            json_path = f"/tmp/l1/{message_id}/email.json"
+            json_path = f"{DATA_PATH}/l1/{message_id}/email.json"
             write_file(
                 json_path,
                 json.dumps(parsed.model_dump(), indent=2, default=str).encode("utf-8")

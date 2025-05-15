@@ -49,6 +49,9 @@ x-airflow-common: &airflow-common
     CHROME_BIN: ${CHROME_BIN}
     CHROMEDRIVER_BIN: ${CHROMEDRIVER_BIN}
 
+    # Data Path
+    DATA_PATH: ${DATA_PATH}
+
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs

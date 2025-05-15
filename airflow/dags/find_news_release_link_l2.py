@@ -16,11 +16,13 @@ from chat import Chat, ChatConfig
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+DATA_PATH = os.environ.get("DATA_PATH")
+
 def filter_candidate_links(**context):
     """
-    Load parsed email JSON from /tmp/l1/<message_id>/email.json
+    Load parsed email JSON from {DATA_PATH}/l1/<message_id>/email.json
     Remove non-content links (mailto, unsubscribe, socials, etc.)
-    Save filtered links to /tmp/l2/<message_id>/links.json
+    Save filtered links to {DATA_PATH}/l2/<message_id>/links.json
     
     This function also applies heuristic scoring for potential fallback use later.
     """
@@ -40,8 +42,8 @@ def filter_candidate_links(**context):
     
     for msg_id in message_ids:
         try:
-            input_path = f"/tmp/l1/{msg_id}/email.json"
-            output_dir = f"/tmp/l2/{msg_id}"
+            input_path = f"{DATA_PATH}/l1/{msg_id}/email.json"
+            output_dir = f"{DATA_PATH}/l2/{msg_id}"
             output_path = f"{output_dir}/links.json"
             heuristic_path = f"{output_dir}/heuristic_scores.json"
             
@@ -123,8 +125,8 @@ def filter_candidate_links(**context):
 def select_best_link_llm(**context):
     """
     Use LLM to pick the best link pointing to the press release.
-    Save chosen link to /tmp/l3/<message_id>/selected_link.json
-    Save LLM response to /tmp/l2/<message_id>/llm_response.json for debugging.
+    Save chosen link to {DATA_PATH}/l3/<message_id>/selected_link.json
+    Save LLM response to {DATA_PATH}/l2/<message_id>/llm_response.json for debugging.
     """
     config = ChatConfig(
         model="gpt-3.5-turbo",
@@ -138,9 +140,9 @@ def select_best_link_llm(**context):
 
     for msg_id in message_ids:
         try:
-            input_links_path = f"/tmp/l2/{msg_id}/links.json"
-            input_email_path = f"/tmp/l1/{msg_id}/email.json"
-            output_dir = f"/tmp/l2/{msg_id}"
+            input_links_path = f"{DATA_PATH}/l2/{msg_id}/links.json"
+            input_email_path = f"{DATA_PATH}/l1/{msg_id}/email.json"
+            output_dir = f"{DATA_PATH}/l2/{msg_id}"
             output_path = f"{output_dir}/selected_link.json"
             llm_response_path = f"{output_dir}/llm_response.json"
 

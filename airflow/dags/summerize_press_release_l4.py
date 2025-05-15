@@ -18,6 +18,8 @@ from chat import Chat, ChatConfig
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+DATA_PATH = os.environ.get("DATA_PATH")
+
 # Tokenizer setup for GPT-4o
 tokenizer = tiktoken.encoding_for_model("gpt-4o")
 MAX_TOKENS_PER_CHUNK = 4096
@@ -70,7 +72,7 @@ def summarize_release(**context):
     for msg_id in extraction_summary:
         try:
             logger.info(f"Summarizing release for: {msg_id}")
-            base_path = "/tmp"
+            base_path = f"{DATA_PATH}"
 
             # Load L1 and L3 data
             l1 = read_json(f"{base_path}/l1/{msg_id}/email.json")
@@ -164,7 +166,7 @@ def create_report(**context):
 
     for msg_id in summary:
         try:
-            path = f"/tmp/l4/{msg_id}"
+            path = f"{DATA_PATH}/l4/{msg_id}"
             data = read_json(f"{path}/final_output.json")
             email_summary = data.get("email_summary", "No summary available.")
 
