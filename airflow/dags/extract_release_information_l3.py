@@ -20,15 +20,38 @@ logger = logging.getLogger(__name__)
 
 DATA_PATH = os.environ.get("DATA_PATH")
 
-def normalize_url(pdf_url: str) -> str:
+def normalize_url(pdf_url: str, base_url: str = None) -> str:
     """
-    Normalize URL by prepending https if missing a scheme.
+    Normalize URL by handling various formats and edge cases.
+    
+    Args:
+        pdf_url: The PDF URL to normalize
+        base_url: The base URL of the page where the PDF link was found
+        
+    Returns:
+        Normalized URL with proper scheme and structure
     """
+    # Handle empty URLs
+    if not pdf_url or pdf_url.isspace():
+        return None
+        
+    # Clean whitespace
+    pdf_url = pdf_url.strip()
+    
+    # Handle protocol-relative URLs (starting with //)
     if pdf_url.startswith("//"):
         return "https:" + pdf_url
-    elif not pdf_url.startswith("http"):
-        return "https://" + pdf_url
-    return pdf_url
+        
+    # Handle absolute URLs (already have http/https)
+    if pdf_url.startswith(("http://", "https://")):
+        return pdf_url
+        
+    # Handle relative URLs if we have a base URL
+    if base_url:
+        return urljoin(base_url, pdf_url)
+        
+    # Otherwise, assume it's a domain without protocol
+    return "https://" + pdf_url
 
 def extract_html_with_selenium(**context):
     """
@@ -54,20 +77,29 @@ def extract_html_with_selenium(**context):
     driver = webdriver.Chrome(service=service, options=options)
 
     html_contents = {}
+    actual_urls = {}  # Store the actual URLs after any redirects
 
     for msg_id, url in message_links.items():
         try:
             logger.info(f"Fetching HTML for {msg_id} from {url}")
             driver.get(url)
             html = driver.page_source
+            actual_url = driver.current_url  # Get the actual URL after any redirects
+            
             html_contents[msg_id] = html
+            actual_urls[msg_id] = actual_url
+            
             os.makedirs(f"{DATA_PATH}/l3/{msg_id}", exist_ok=True)
         except Exception as e:
             logger.error(f"Failed to fetch HTML for {msg_id}: {e}")
 
     driver.quit()
     logger.info("Selenium driver closed.")
+    
+    # Push both HTML contents and actual URLs to XCom
     ti.xcom_push(key="html_contents", value=html_contents)
+    ti.xcom_push(key="actual_urls", value=actual_urls)
+    
     return list(html_contents.keys())
 
 def extract_main_text(html):
@@ -106,11 +138,13 @@ def process_and_save_extractions(**context):
     logger.info("Starting process_and_save_extractions")
     ti = context["ti"]
     html_contents = ti.xcom_pull(task_ids="extract_html_with_selenium", key="html_contents")
+    actual_urls = ti.xcom_pull(task_ids="extract_html_with_selenium", key="actual_urls") or {}
 
     summary = {}
 
     for msg_id, html in (html_contents or {}).items():
         try:
+            base_url = actual_urls.get(msg_id, "")  # Get the actual URL from Selenium
             soup = BeautifulSoup(html, "html.parser")
             main_text = extract_main_text(html)
             pdf_links = extract_pdf_links(soup)
@@ -124,13 +158,15 @@ def process_and_save_extractions(**context):
             with open(f"{output_dir}/main_text.txt", "w", encoding="utf-8") as f:
                 f.write(main_text)
 
+            # Save both PDF links and the base URL
             with open(f"{output_dir}/pdf_links.json", "w") as f:
-                json.dump(pdf_links, f, indent=2)
+                json.dump({"links": pdf_links, "base_url": base_url}, f, indent=2)
 
             summary[msg_id] = {
                 "has_main_text": bool(main_text),
                 "pdf_links_count": len(pdf_links),
-                "output_dir": output_dir
+                "output_dir": output_dir,
+                "base_url": base_url
             }
 
             logger.info(f"Extraction completed for {msg_id}")
@@ -153,6 +189,7 @@ def extract_pdfs(**context):
     for msg_id, meta in extraction_summary.items():
         try:
             output_dir = meta.get("output_dir")
+            base_url = meta.get("base_url", "")  # Get the base URL from the summary
             pdf_dir = os.path.join(output_dir, "pdfs")
             os.makedirs(pdf_dir, exist_ok=True)
 
@@ -162,9 +199,14 @@ def extract_pdfs(**context):
                 continue
 
             with open(pdf_links_path, "r") as f:
-                raw_links = json.load(f)
+                pdf_data = json.load(f)
+                raw_links = pdf_data.get("links", [])
+                # Use the base URL from the JSON file or fall back to the one in the summary
+                base_url = pdf_data.get("base_url", base_url)
 
-            pdf_links = [normalize_url(url) for url in raw_links]
+            # Normalize all PDF links using the improved function and the actual base URL
+            pdf_links = [normalize_url(url, base_url) for url in raw_links]
+            pdf_links = [url for url in pdf_links if url]  # Filter out None values
 
             combined_text = []
             pdf_summary = []
@@ -285,4 +327,4 @@ with DAG(
         provide_context=True,
     )
 
-    start >> extract_html >> process_extractions >> extract_pdf_files >> end
+    start >> extract_html >> process_extractions >> extract_pdf_files >> trigger_l4 >> end
