@@ -1,5 +1,4 @@
 x-airflow-common: &airflow-common
-  image: kcap-airflow:latest
   build: 
     context: .
     dockerfile: Dockerfile
@@ -12,7 +11,11 @@ x-airflow-common: &airflow-common
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
     AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-    AIRFLOW__LOG__HOST: "airflow-webserver"
+    AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
+    AIRFLOW__LOGGING__REMOTE_LOGGING: False
+    AIRFLOW__LOGGING__WORKER_LOG_SERVER_PORT: 8793
+    AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+    AIRFLOW__LOGGING__WORKER_LOG_SERVER_HOST: 127.0.0.1
 
     DB_NAME: ${DB_NAME}
     DB_USER: ${DB_USER}
@@ -140,10 +143,10 @@ services:
       - |
         mkdir -p /opt/airflow/{logs,dags,plugins}
         chown -R "${AIRFLOW_UID}:0" /opt/airflow/{logs,dags,plugins}
-        airflow db init && \
+        airflow db migrate && \
         airflow users create \
-          --username ${_AIRFLOW_WWW_USER_USERNAME:-admin} \
-          --password ${_AIRFLOW_WWW_USER_PASSWORD:-admin} \
+          --username ${_AIRFLOW_WWW_USER_USERNAME} \
+          --password ${_AIRFLOW_WWW_USER_PASSWORD} \
           --firstname Admin \
           --lastname User \
           --role Admin \

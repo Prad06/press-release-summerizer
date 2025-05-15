@@ -21,3 +21,6 @@ openai
 selenium 
 webdriver-manager
 trafilatura
+pytz
+bs4 
+tiktoken
