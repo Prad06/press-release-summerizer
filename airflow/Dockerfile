@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     curl \
     unzip \
+    xdg-utils \ 
     fonts-liberation \
     libnss3 \
     libxss1 \
