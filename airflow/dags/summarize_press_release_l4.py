@@ -15,6 +15,7 @@ from dateutil import parser
 # Mount src for custom modules
 sys.path.append("/opt/src")
 from chat import Chat, ChatConfig
+from services.db import DBService
 
 # Logger setup
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -319,11 +320,15 @@ def summarize_release(**context):
     :param context: Airflow context
     :return: None
     """
+
     extraction_summary = context["params"].get("extraction_summary", {})
     chat = Chat(ChatConfig(model="gpt-4o", temperature=0, max_tokens=1024))
-    
     tokenizer = tiktoken.encoding_for_model("gpt-4o")
     
+    successful_count = 0
+    failed_count = 0
+    successful_entries = []
+
     for msg_id in extraction_summary:
         try:
             logger.info(f"Summarizing release for: {msg_id}")
@@ -342,8 +347,48 @@ def summarize_release(**context):
             release_timestamp = extract_timestamp_from_summary(summaries["full_summary"])
             save_outputs(base_path, msg_id, metadata, summaries, release_timestamp, pdf_stats)
             
+            # Add to successful entries
+            successful_entries.append({
+                "msg_id": msg_id,
+                "release_timestamp": release_timestamp,
+                "email_summary": summaries["email_summary"]
+            })
+            successful_count += 1
+
         except Exception as e:
             logger.error(f"Failed summarizing {msg_id}: {e}")
+
+            failed_count += 1
+
+    # Push results to XCom
+    context["ti"].xcom_push(key="successful_entries", value=successful_entries)
+    logging.info(f"Summary completed: {successful_count} successful, {failed_count} failed")
+
+
+def publish_metrics_to_postgres(**context):
+    """
+    Publish metrics to PostgreSQL database.
+    
+    :param context: Airflow context
+    :return: None
+    """
+    try:
+        successful_entries = context["ti"].xcom_pull(task_ids="summarize_release", key="successful_entries")
+        logger.info(f"Publishing metrics: {len(successful_entries)} successful entries")
+        if not successful_entries:
+            logger.warning("No successful entries to publish.")
+            return
+        
+        db_service = DBService()
+
+        for entry in successful_entries:
+            db_service.publish_summary_metric(entry)
+            logger.info(f"Published summary metric for {entry['msg_id']}")
+
+        logger.info("Metrics published to PostgreSQL database")
+    except Exception as e:
+        logger.error(f"Failed to publish metrics to PostgreSQL: {e}")
+        raise
 
 with DAG(
     dag_id="summarize_press_release_l4",
@@ -362,6 +407,12 @@ with DAG(
         provide_context=True
     )
 
+    publish_metrics = PythonOperator(
+        task_id="publish_metrics",
+        python_callable=publish_metrics_to_postgres,
+        provide_context=True
+    )
+
     end = EmptyOperator(task_id="end")
 
-    start >> summarize >> end
+    start >> summarize >> publish_metrics >> end

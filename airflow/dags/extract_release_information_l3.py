@@ -93,6 +93,8 @@ def extract_html_with_selenium(**context):
 def extract_main_text(html):
     """
     Use Trafilatura to extract the main article content from full HTML.
+    :param html: The HTML content to process.
+    :return: Extracted main text or an empty string if extraction fails.
     """
     try:
         return trafilatura.extract(html) or ""
@@ -103,6 +105,8 @@ def extract_main_text(html):
 def extract_pdf_links(soup):
     """
     Find all candidate PDF links from HTML by inspecting tag attributes.
+    :param soup: BeautifulSoup object of the HTML content.
+    :return: List of unique PDF links.
     """
     try:
         pdf_links = set()

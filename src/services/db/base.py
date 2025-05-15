@@ -2,7 +2,7 @@ import os
 import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
-from .models import GoogleToken, GmailHistory
+from .models import GoogleToken, GmailHistory, PressReleaseSummary
 import logging
 
 logger = logging.getLogger(__name__)
@@ -130,4 +130,42 @@ class DBService:
 
         session.commit()
         session.close()
+
+    def publish_summary_metric(self, summary_metric):
+        """
+        Publish a single summary metric to a monitoring system.
+
+        :param summary_metric: Dictionary containing the summary metric data
+        """
+        session = self.get_session()
+
+        try:
+            press_release_summary = PressReleaseSummary(
+                release_timestamp=summary_metric.get('release_timestamp'),
+                email_delivery_time=summary_metric.get('email_delivery_time'),
+                retrieved_timestamp=summary_metric.get('retrieved_timestamp'),
+                summary_ts=summary_metric.get('summary_ts'),
+                email_sender=summary_metric.get('email_sender'),
+                email_subject=summary_metric.get('email_subject'),
+                email_body=summary_metric.get('email_body'),
+                link_to_news_release_from_email=summary_metric.get('link_to_news_release_from_email'),
+                link_selection_method_from_email=summary_metric.get('link_selection_method_from_email'),
+                all_available_links_from_email=summary_metric.get('all_available_links_from_email'),
+                main_content_from_news_release_page=summary_metric.get('main_content_from_news_release_page'),
+                pdf_count=summary_metric.get('pdf_count'),
+                analyzed_pdf_count=summary_metric.get('analyzed_pdf_count'),
+                page_summary=summary_metric.get('page_summary'),
+                email_summary=summary_metric.get('email_summary')
+            )
+            session.add(press_release_summary)
+            session.commit()
+            logger.info("Successfully added the summary metric to the database.")
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error adding the summary metric to the database: {e}")
+            raise
+        finally:
+            session.close()
+        
+
 

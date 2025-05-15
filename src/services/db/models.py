@@ -32,3 +32,24 @@ class GmailHistory(Base):
     user_email = Column(String, unique=True, nullable=False)
     history_id = Column(BigInteger, nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+
+class PressReleaseSummary(Base):
+    __tablename__ = 'press_release_summaries'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    release_timestamp = Column(DateTime(timezone=True))
+    email_delivery_time = Column(DateTime(timezone=True))
+    retrieved_timestamp = Column(DateTime(timezone=True))
+    summary_ts = Column(DateTime(timezone=True))
+    email_sender = Column(Text)
+    email_subject = Column(Text)
+    email_body = Column(Text)
+    link_to_news_release_from_email = Column(Text)
+    link_selection_method_from_email = Column(Text)
+    all_available_links_from_email = Column(Text)
+    main_content_from_news_release_page = Column(Text)
+    pdf_count = Column(Integer)
+    analyzed_pdf_count = Column(Integer)
+    page_summary = Column(Text)
+    email_summary = Column(Text)
