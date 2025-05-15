@@ -255,8 +255,8 @@ def trigger_l3_dag(**context):
         conf = {"message_links": successful_message_links}
 
         trigger_task = TriggerDagRunOperator(
-            task_id="extract_release_information_l3",
-            trigger_dag_id="l3_task_dag",
+            task_id="trigger_extract_release_information_l3",
+            trigger_dag_id="extract_release_information_l3",
             conf=conf,
             reset_dag_run=True,
             wait_for_completion=False,
