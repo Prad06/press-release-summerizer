@@ -243,7 +243,7 @@ def trigger_l4_dag(**context):
             task_id="trigger_l4_task",
             trigger_dag_id="summarize_press_release_l4",
             conf=conf,
-            wait_for_completion=True,
+            wait_for_completion=False,
         )
 
         trigger_task.execute(context=context)
