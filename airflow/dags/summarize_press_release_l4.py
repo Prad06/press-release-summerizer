@@ -278,7 +278,7 @@ def save_outputs(base_path, msg_id, metadata, summaries, release_timestamp, pdf_
     :param summaries: Dictionary with generated summaries
     :param release_timestamp: Formatted release timestamp
     :param pdf_stats: Dictionary with PDF statistics
-    :return: None
+    :return: Summary timestamp
     """
     out_dir = f"{base_path}/l4/{msg_id}"
     os.makedirs(out_dir, exist_ok=True)
@@ -311,6 +311,8 @@ def save_outputs(base_path, msg_id, metadata, summaries, release_timestamp, pdf_
         json.dump(final_json, f, indent=2)
     
     logger.info(f"Stored summary files for {msg_id}")
+
+    return summary_ts
 
 def summarize_release(**context):
     """
@@ -345,13 +347,28 @@ def summarize_release(**context):
             chunks = chunk_text(combined_content, tokenizer)
             summaries = generate_llm_summaries(chat, chunks, SYSTEM_PROMPT, SHORT_SYSTEM_PROMPT)
             release_timestamp = extract_timestamp_from_summary(summaries["full_summary"])
-            save_outputs(base_path, msg_id, metadata, summaries, release_timestamp, pdf_stats)
+            summary_ts = save_outputs(base_path, msg_id, metadata, summaries, release_timestamp, pdf_stats)
             
             # Add to successful entries
             successful_entries.append({
-                "msg_id": msg_id,
-                "release_timestamp": release_timestamp,
-                "email_summary": summaries["email_summary"]
+                successful_entries.append({
+                    "msg_id": msg_id,
+                    "release_timestamp": release_timestamp,
+                    "email_summary": summaries["email_summary"],
+                    "summary_ts": summary_ts,
+                    "email_subject": metadata["email_subject"],
+                    "email_body": metadata["email_body"],
+                    "email_sender": metadata["email_sender"],
+                    "email_delivery_time": convert_to_eastern(metadata["email_delivery_time"]),
+                    "retrieved_timestamp": convert_to_eastern(metadata["retrieved_timestamp"]),
+                    "link_to_news_release_from_email": metadata["link_to_news_release"],
+                    "link_selection_method_from_email": metadata["link_selection_method"],
+                    "all_available_links_from_email": metadata["all_available_links"],
+                    "main_content_from_news_release_page": metadata["main_content"],
+                    "pdf_count": pdf_stats["total"],
+                    "analyzed_pdf_count": pdf_stats["analyzed"],
+                    "page_summary": summaries["full_summary"]
+                })
             })
             successful_count += 1
 

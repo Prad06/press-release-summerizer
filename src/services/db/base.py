@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from .models import GoogleToken, GmailHistory, PressReleaseSummary
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -133,43 +134,36 @@ class DBService:
 
     def publish_summary_metric(self, summary_metrics):
         """
-        Publish a single summary metric to a monitoring system.
-
-        :param summary_metric: Dictionary containing the summary metric data
+        Publish a single summary metric to PostgreSQL.
         """
         session = self.get_session()
 
-        summary_metric = summary_metrics.get("email_summary")
-        message_id = summary_metrics.get('message_id')
-
         try:
             press_release_summary = PressReleaseSummary(
-                message_id=message_id,
-                release_timestamp=summary_metric.get('release_timestamp'),
-                email_delivery_time=summary_metric.get('email_delivery_time'),
-                retrieved_timestamp=summary_metric.get('retrieved_timestamp'),
-                summary_ts=summary_metric.get('summary_ts'),
-                email_sender=summary_metric.get('email_sender'),
-                email_subject=summary_metric.get('email_subject'),
-                email_body=summary_metric.get('email_body'),
-                link_to_news_release_from_email=summary_metric.get('link_to_news_release_from_email'),
-                link_selection_method_from_email=summary_metric.get('link_selection_method_from_email'),
-                all_available_links_from_email=summary_metric.get('all_available_links_from_email'),
-                main_content_from_news_release_page=summary_metric.get('main_content_from_news_release_page'),
-                pdf_count=summary_metric.get('pdf_count'),
-                analyzed_pdf_count=summary_metric.get('analyzed_pdf_count'),
-                page_summary=summary_metric.get('page_summary'),
-                email_summary=summary_metric.get('email_summary')
+                message_id=summary_metrics.get('msg_id'),
+                release_timestamp=summary_metrics.get('release_timestamp'),
+                email_delivery_time=summary_metrics.get('email_delivery_time'),
+                retrieved_timestamp=summary_metrics.get('retrieved_timestamp'),
+                summary_ts=summary_metrics.get('summary_ts'),
+                email_sender=summary_metrics.get('email_sender'),
+                email_subject=summary_metrics.get('email_subject'),
+                email_body=summary_metrics.get('email_body'),
+                link_to_news_release_from_email=summary_metrics.get('link_to_news_release_from_email'),
+                link_selection_method_from_email=summary_metrics.get('link_selection_method_from_email'),
+                all_available_links_from_email=json.dumps(summary_metrics.get('all_available_links_from_email')),
+                main_content_from_news_release_page=summary_metrics.get('main_content_from_news_release_page'),
+                pdf_count=summary_metrics.get('pdf_count'),
+                analyzed_pdf_count=summary_metrics.get('analyzed_pdf_count'),
+                page_summary=summary_metrics.get('page_summary'),
+                email_summary=summary_metrics.get('email_summary')
             )
             session.add(press_release_summary)
             session.commit()
-            logger.info("Successfully added the summary metric to the database.")
+            logger.info(f"Successfully added the summary metric for {summary_metrics.get('msg_id')} to the database.")
         except Exception as e:
             session.rollback()
-            logger.error(f"Error adding the summary metric to the database: {e}")
+            logger.error(f"Error adding summary metric to the database: {e}")
             raise
         finally:
             session.close()
-        
-
 
