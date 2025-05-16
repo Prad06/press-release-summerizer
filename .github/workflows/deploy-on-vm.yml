@@ -18,6 +18,19 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Install Docker, Compose, and Chrome
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker.io docker-compose unzip curl gnupg wget
+
+        echo "Installing Google Chrome..."
+        wget -q -O google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        sudo apt install -y ./google-chrome.deb
+        rm google-chrome.deb
+
+        sudo systemctl enable docker
+        sudo systemctl start docker
+
     - name: Make config directory
       run: |
         sudo mkdir -p config
