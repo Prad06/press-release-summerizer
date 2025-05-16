@@ -38,6 +38,7 @@ class PressReleaseSummary(Base):
     __tablename__ = 'press_release_summaries'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    message_id = Column(String, nullable=False)
     release_timestamp = Column(DateTime(timezone=True))
     email_delivery_time = Column(DateTime(timezone=True))
     retrieved_timestamp = Column(DateTime(timezone=True))

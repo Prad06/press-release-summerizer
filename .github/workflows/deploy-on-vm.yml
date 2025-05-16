@@ -49,7 +49,7 @@ jobs:
       uses: jsdaniell/create-json@v1.2.3
       with:
         name: "google_sa.json"
-        json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+        json: ${{ secrets.GCP_SA_KEY }}
         dir: "config/"
 
     - name: Copy all the files to the VM

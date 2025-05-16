@@ -131,7 +131,7 @@ class DBService:
         session.commit()
         session.close()
 
-    def publish_summary_metric(self, summary_metric):
+    def publish_summary_metric(self, summary_metrics):
         """
         Publish a single summary metric to a monitoring system.
 
@@ -139,8 +139,12 @@ class DBService:
         """
         session = self.get_session()
 
+        summary_metric = summary_metrics.get("email_summary")
+        message_id = summary_metrics.get('message_id')
+
         try:
             press_release_summary = PressReleaseSummary(
+                message_id=message_id,
                 release_timestamp=summary_metric.get('release_timestamp'),
                 email_delivery_time=summary_metric.get('email_delivery_time'),
                 retrieved_timestamp=summary_metric.get('retrieved_timestamp'),
