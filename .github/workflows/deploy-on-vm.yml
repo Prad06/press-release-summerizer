@@ -41,13 +41,19 @@ jobs:
 
     - name: Create .env file
       run: |
-        sudo chown -R $(whoami) $HOME/airflow
-        echo "${{ secrets.AIRFLOW_ENV }}" > $HOME/airflow/.env
-        cat $HOME/airflow/.env
+        echo "${{ secrets.AIRFLOW_ENV }}" > airflow/.env
+        echo "${{ secrets.WATCHER_ENV }}" > .env
 
-        sudo chown -R $(whoami) $HOME
-        echo "${{ secrets.WATCHER_ENV }}" > $HOME/.env
-        cat $HOME/.env
+    - name: Copy all the files to the VM
+      run: |
+        sudo cp -r ${{ github.workspace }}/* $HOME/
+        sudo chown -R $(whoami):$(whoami) $HOME/*
+        sudo chmod -R 755 $HOME/*
+
+    - name: Create a download directory
+      run: |
+        sudo mkdir -p $HOME/airflow/downloads
+        sudo chown -R $(whoami):$(whoami) $HOME/airflow/downloads
 
     - name: Docker Compose Up for Airflow
       run: |
