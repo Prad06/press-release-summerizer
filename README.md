@@ -96,7 +96,18 @@ Each stage is modular and fault-tolerant with clean separation of concerns, enab
 
 ## ⚙️ Deployment
 
-TODO: add deployment details
+### Stage 1: Provision the GCP VM
+
+> Workflow: `.github/workflows/provision-vm.yml`
+
+Make sure the GitHub Secrets have a secret GCP_SA_KEY with the following permissions
+- roles/compute.admin
+- roles/compute.securityAdmin
+- roles/iam.serviceAccountUser 
+
+Update the project id and other details in the deploy script and action.
+
+### Stage 2: 
 
 ---
 

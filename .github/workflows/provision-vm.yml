@@ -1,42 +1,117 @@
 name: Provision VM for Press Release Summarizer
-
 on:
   workflow_dispatch:
-
 jobs:
   deploy-vm:
     name: Create VM & Update Firewall
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout repo
       uses: actions/checkout@v3
-
+      
     - name: Authenticate with Google Cloud
       uses: google-github-actions/auth@v1
       with:
         credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
+        
     - name: Set up gcloud CLI
       uses: google-github-actions/setup-gcloud@v1
       with:
         project_id: inbox-ai-456015
         export_default_credentials: true
-
+        
+    - name: Generate SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keygen -t rsa -b 2048 -f ~/.ssh/gcp_key -N "" -C "github-actions"
+        echo "Generated SSH key pair"
+        
     - name: Make deploy.sh executable
       run: chmod +x deploy.sh
-
+      
     - name: Run deployment script
       id: deploy
       run: ./deploy.sh
-
+      
+    - name: Add SSH Key to VM
+      run: |
+        gcloud compute instances add-metadata kcap-assessment-prod \
+          --zone=us-east1-c \
+          --metadata-from-file ssh-keys=<(echo "github-actions:$(cat ~/.ssh/gcp_key.pub)")
+        echo "Added SSH public key to VM"
+        
     - name: Fetch and display VM external IP
       run: |
         echo "Fetching external IP address for the VM..."
         EXTERNAL_IP=$(gcloud compute instances describe kcap-assessment-prod \
           --zone=us-east1-c \
           --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
-
         echo ""
         echo "External IP address for kcap-assessment-prod: $EXTERNAL_IP"
-        echo "::set-output name=external_ip::$EXTERNAL_IP"
+        echo "external_ip=$EXTERNAL_IP" >> $GITHUB_OUTPUT
+        
+    - name: Prepare environment files
+      run: |
+        # Create temporary files with the environment variables
+        echo "${{ secrets.WATCHER }}" > watcher.env
+        echo "${{ secrets.AIRFLOW }}" > airflow.env
+        echo "${{ secrets.GOOGLE_CREDENTIALS }}" > credentials.json
+        echo "${{ secrets.GCP_SA_KEY }}" > google_sa.json
+        
+    - name: SSH into VM and run setup commands
+      run: |
+        echo "Connecting to VM via SSH..."
+        # Copy environment files to the VM
+        scp -o StrictHostKeyChecking=no -i ~/.ssh/gcp_key watcher.env github-actions@${{ steps.deploy.outputs.external_ip }}:~/watcher.env
+        scp -o StrictHostKeyChecking=no -i ~/.ssh/gcp_key airflow.env github-actions@${{ steps.deploy.outputs.external_ip }}:~/airflow.env
+        scp -o StrictHostKeyChecking=no -i ~/.ssh/gcp_key credentials.json github-actions@${{ steps.deploy.outputs.external_ip }}:~/credentials.json
+        scp -o StrictHostKeyChecking=no -i ~/.ssh/gcp_key google_sa.json github-actions@${{ steps.deploy.outputs.external_ip }}:~/google_sa.json
+        
+        # Connect to VM and set up environment
+        ssh -o StrictHostKeyChecking=no -i ~/.ssh/gcp_key github-actions@${{ steps.deploy.outputs.external_ip }} << 'ENDSSH'
+          echo "Successfully connected to VM!"
+          
+          # Install required software
+          echo "Installing required software..."
+          sudo apt-get update
+          sudo apt-get install -y docker.io docker-compose unzip curl gnupg wget
+          
+          # Install Google Chrome
+          echo "Installing Google Chrome..."
+          wget -q -O google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install -y ./google-chrome.deb
+          rm google-chrome.deb
+          
+          # Clone repository
+          echo "Cloning repository..."
+          git clone https://github.com/Prad06/press-release-summerizer.git
+          
+          # Set proper permissions
+          echo "Setting permissions..."
+          mkdir -p ~/press-release-summerizer/airflow/downloads
+          chmod 777 ~/press-release-summerizer/airflow/downloads
+          
+          # Setup environment files
+          echo "Setting up environment files..."
+          cp ~/watcher.env ~/press-release-summerizer/.env
+          
+          mkdir -p ~/press-release-summerizer/airflow/
+          cp ~/airflow.env ~/press-release-summerizer/airflow/.env
+          
+          mkdir -p ~/press-release-summerizer/config/
+          cp ~/credentials.json ~/press-release-summerizer/config/credentials.json
+          cp ~/google_sa.json ~/press-release-summerizer/config/google_sa.json
+          
+          # Cleanup temporary files
+          rm ~/watcher.env ~/airflow.env ~/credentials.json ~/google_sa.json
+          
+          # Start the application (uncomment if needed)
+          # cd ~/press-release-summerizer
+          # sudo docker-compose up -d
+          
+          echo "Setup completed successfully!"
+        ENDSSH
+        
+    - name: Cleanup local environment files
+      run: |
+        rm -f watcher.env airflow.env credentials.json google_sa.json
