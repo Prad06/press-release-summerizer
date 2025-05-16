@@ -52,17 +52,18 @@ jobs:
         json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
         dir: "config/"
 
-    - name: Create .env file
-      run: |
-        echo "${{ secrets.AIRFLOW_ENV }}" > airflow/.env
-        echo "${{ secrets.WATCHER_ENV }}" > .env
-
     - name: Copy all the files to the VM
       run: |
         sudo mkdir -p $HOME/press-release-summarizer
         sudo cp -r ${{ github.workspace }}/* $HOME/press-release-summarizer/
         sudo chown -R $(whoami):$(whoami) $HOME/press-release-summarizer/*
         sudo chmod -R 755 $HOME/press-release-summarizer/*
+
+    - name: Create .env files in final destination
+      run: |
+        echo "${{ secrets.WATCHER_ENV }}" > $HOME/press-release-summarizer/.env
+        echo "${{ secrets.AIRFLOW_ENV }}" > $HOME/press-release-summarizer/airflow/.env    
+
 
     - name: Create a download directory
       run: |
