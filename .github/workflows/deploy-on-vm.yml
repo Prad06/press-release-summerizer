@@ -8,71 +8,64 @@ jobs:
     steps:
     - name: Checkout repo
       uses: actions/checkout@v3
-      
-    - name: Setup environment variables
+
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Make config directory
       run: |
-        # Create environment files from secrets
-        echo "${{ secrets.WATCHER }}" > watcher.env
-        echo "${{ secrets.AIRFLOW }}" > airflow.env
-        echo "${{ secrets.GOOGLE_CREDENTIALS }}" > credentials.json
-        echo "${{ secrets.GCP_SA_KEY }}" > google_sa.json
-      
-    - name: Install required software
+        sudo mkdir -p press_release_summerizer/config
+        sudo chown -R $(whoami) press_release_summerizer/config
+
+    - name: Create dynamic credentials.json file
+      id: create-json-1
+      uses: jsdaniell/create-json@v1.2.3
+      with:
+        name: "credentials.json"
+        json: ${{ secrets.GOOGLE_CREDENTIALS }}
+        dir: "press_release_summerizer/config/"
+
+    - name: Create dynamic google_service_account.json file
+      id: create-json-2
+      uses: jsdaniell/create-json@v1.2.3
+      with:
+        name: "google_sa.json"
+        json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+        dir: "press_release_summerizer/config/"
+
+    - name: Create .env file
       run: |
-        echo "Installing required software..."
-        sudo apt-get update
-        sudo apt-get install -y docker.io docker-compose unzip curl gnupg wget
-        
-        # Install Google Chrome
-        echo "Installing Google Chrome..."
-        wget -q -O google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-        sudo apt install -y ./google-chrome.deb
-        rm google-chrome.deb
-      
-    - name: Clone repository
+        sudo chown -R $(whoami) $HOME/airflow
+        echo "${{ secrets.AIRFLOW_ENV }}" > $HOME/airflow/.env
+        cat $HOME/airflow/.env
+
+        sudo chown -R $(whoami) $HOME
+        echo "${{ secrets.WATCHER_ENV }}" > $HOME/.env
+        cat $HOME/.env
+
+    - name: Docker Compose Up for Airflow
       run: |
-        echo "Cloning repository..."
-        # Check if repository already exists
-        if [ ! -d "$HOME/press-release-summerizer" ]; then
-          git clone https://github.com/Prad06/press-release-summerizer.git $HOME/press-release-summerizer
-        else
-          echo "Repository already exists, updating..."
-          cd $HOME/press-release-summerizer
-          git pull
-        fi
-      
-    - name: Setup project structure and permissions
+        sudo docker compose -f $HOME/airflow/docker-compose.yml --build
+        sudo docker compose -f $HOME/airflow/docker-compose.yml run airflow-init
+        sudo docker compose -f $HOME/airflow/docker-compose.yml up -d
+
+        echo "Airflow is getting ready..."
+    
+    - name: Docker Compose Up for Watcher
       run: |
-        echo "Setting up project structure and permissions..."
-        mkdir -p $HOME/press-release-summerizer/airflow/downloads
-        chmod 777 $HOME/press-release-summerizer/airflow/downloads
-        
-        # Setup environment files
-        echo "Setting up environment files..."
-        cp watcher.env $HOME/press-release-summerizer/.env
-        
-        mkdir -p $HOME/press-release-summerizer/airflow/
-        cp airflow.env $HOME/press-release-summerizer/airflow/.env
-        
-        mkdir -p $HOME/press-release-summerizer/config/
-        cp credentials.json $HOME/press-release-summerizer/config/credentials.json
-        cp google_sa.json $HOME/press-release-summerizer/config/google_sa.json
-        
-    - name: Cleanup
+        sudo docker compose -f $HOME/docker-compose.yml --build
+        sudo docker compose -f $HOME/airflow/docker-compose.yml up -d
+
+        echo "Watcher is getting ready..."
+
+    - name: Health Check for Airflow
       run: |
-        echo "Cleaning up temporary files..."
-        rm -f watcher.env airflow.env credentials.json google_sa.json
-        
-    - name: Display completion message
-      run: |
-        echo "========================================"
-        echo "Environment setup completed successfully"
-        echo "========================================"
-        
-        # Display some system information
-        echo "System information:"
-        echo "  - Hostname: $(hostname)"
-        echo "  - IP Address: $(hostname -I | awk '{print $1}')"
-        echo "  - Docker version: $(docker --version)"
-        echo "  - Docker Compose version: $(docker-compose --version)"
-        echo "  - Chrome version: $(google-chrome --version)"
+        sleep 30
+        while ! curl -s http://localhost:8080/health; do
+          echo "Waiting for Airflow to be healthy..."
+          sleep 5
+        done
+        echo "Airflow is healthy!"
+

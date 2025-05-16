@@ -6,10 +6,6 @@ A modular, low-latency pipeline to automatically monitor biotech company press r
 
 ## 🧩 Architecture Overview
 
-```
-enter image here
-```
-
 Each stage is modular and fault-tolerant with clean separation of concerns, enabling independent DAG retries, logging, and expansion.
 
 ---
@@ -222,7 +218,7 @@ Enable the Gmail VM and download the OAuth2 Credentials
 
 Update the project id and other details in the deploy script and action.
 
-### Stage 2: Set up action runners on the GCP VM
+### Stage 2: Set up actions runner on the GCP VM
 - SSH into the configured VM
 - Follow the instructions on this page https://github.com/{your-username}/press-release-summerizer/settings/actions/runners/new?arch=x64&os=linux
 
