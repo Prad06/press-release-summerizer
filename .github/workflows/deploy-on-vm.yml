@@ -16,8 +16,8 @@ jobs:
 
     - name: Make config directory
       run: |
-        sudo mkdir -p press_release_summerizer/config
-        sudo chown -R $(whoami) press_release_summerizer/config
+        sudo mkdir -p config
+        sudo chown -R $(whoami) config
 
     - name: Create dynamic credentials.json file
       id: create-json-1
@@ -25,7 +25,7 @@ jobs:
       with:
         name: "credentials.json"
         json: ${{ secrets.GOOGLE_CREDENTIALS }}
-        dir: "press_release_summerizer/config/"
+        dir: "config/"
 
     - name: Create dynamic google_service_account.json file
       id: create-json-2
@@ -33,7 +33,7 @@ jobs:
       with:
         name: "google_sa.json"
         json: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-        dir: "press_release_summerizer/config/"
+        dir: "config/"
 
     - name: Create .env file
       run: |
