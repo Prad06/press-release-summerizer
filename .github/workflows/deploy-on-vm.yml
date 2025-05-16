@@ -59,29 +59,30 @@ jobs:
 
     - name: Copy all the files to the VM
       run: |
-        sudo cp -r ${{ github.workspace }}/* $HOME/
-        sudo chown -R $(whoami):$(whoami) $HOME/*
-        sudo chmod -R 755 $HOME/*
+        sudo mkdir -p $HOME/press-release-summarizer
+        sudo cp -r ${{ github.workspace }}/* $HOME/press-release-summarizer/
+        sudo chown -R $(whoami):$(whoami) $HOME/press-release-summarizer/*
+        sudo chmod -R 755 $HOME/press-release-summarizer/*
 
     - name: Create a download directory
       run: |
-        sudo mkdir -p $HOME/airflow/downloads
-        sudo chown -R $(whoami):$(whoami) $HOME/airflow/downloads
+        sudo mkdir -p $HOME/press-release-summarizer/airflow/downloads
+        sudo chown -R $(whoami):$(whoami) $HOME/press-release-summarizer/airflow/downloads
 
     - name: Docker Compose Up for Airflow
       run: |
-        cd $HOME/airflow
-        sudo docker compose build
-        sudo docker compose run airflow-init
-        sudo docker compose up -d
+        cd $HOME/press-release-summarizer/airflow
+        sudo docker-compose build
+        sudo docker-compose run airflow-init
+        sudo docker-compose up -d
 
         echo "Airflow is getting ready..."
     
     - name: Docker Compose Up for Watcher
       run: |
-        cd $HOME
-        sudo docker compose build
-        sudo docker compose up -d
+        cd $HOME/press-release-summarizer
+        sudo docker-compose build
+        sudo docker-compose up -d
 
         echo "Watcher is getting ready..."
 
