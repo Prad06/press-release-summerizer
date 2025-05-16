@@ -100,14 +100,143 @@ Each stage is modular and fault-tolerant with clean separation of concerns, enab
 
 > Workflow: `.github/workflows/provision-vm.yml`
 
-Make sure the GitHub Secrets have a secret GCP_SA_KEY with the following permissions
+### Make sure the GitHub Secrets 
+
+#### GCP_SA_KEY - Roles required
+```
 - roles/compute.admin
 - roles/compute.securityAdmin
 - roles/iam.serviceAccountUser 
+```
+
+#### WATCHER_ENV
+```
+# Database Configuration
+DB_NAME=kcap_db
+DB_USER=your-db-user-name
+DB_PASSWORD=your-db-user-password
+DB_HOST=your-db-ip
+DB_PORT=5432
+
+# Google Authentication
+GOOGLE_APPLICATION_CREDENTIALS=./config/google_sa.json
+GMAIL_OAUTH2_CREDENTIALS=./config/credentials.json
+GMAIL_USER_EMAIL=email-attached-to-gmail-api
+PUBSUB_USER_EMAIL=email-attached-to-gmail-api
+GOOGLE_CLOUD_PROJECT=your-google-cloud-project
+
+# PubSub Configuration
+PUBSUB_TOPIC_NAME=your-pubsub-topic
+PUBSUB_SUBSCRIPTION_NAME=your-pubsub-subscription
+
+# Email Monitoring
+TARGET_EMAIL=your-target-email
+
+# Airflow Configuration
+AIRFLOW_API_URL=http://VM_EXTERNAL_IP:8080/api/v1
+AIRFLOW_USERNAME=your-airflow-username
+AIRFLOW_PASSWORD=your-airflow-password
+PROCESS_GMAIL_DAG_ID=gmail_download_and_parse_l1
+
+# OpenAI API Key
+OPENAI_API_KEY=
+```
+
+#### AIRFLOW_ENV
+
+```
+# Database Configuration
+DB_NAME=kcap_db
+DB_USER=your-db-user-name
+DB_PASSWORD=your-db-user-password
+DB_HOST=your-db-ip
+DB_PORT=5432
+
+# Google Authentication
+GOOGLE_APPLICATION_CREDENTIALS=/opt/airflow/config/google_sa.json
+GMAIL_OAUTH2_CREDENTIALS=/opt/airflow/config/credentials.json
+GMAIL_USER_EMAIL=email-attached-to-gmail-api
+PUBSUB_USER_EMAIL=email-attached-to-gmail-api
+GOOGLE_CLOUD_PROJECT=your-google-cloud-project
+
+# PubSub Configuration
+PUBSUB_TOPIC_NAME=your-pubsub-topic
+PUBSUB_SUBSCRIPTION_NAME=your-pubsub-subscription
+
+# Email Monitoring
+TARGET_EMAIL=your-target-email
+
+# Airflow Configuration
+AIRFLOW_API_URL=http://VM_EXTERNAL_IP:8080/api/v1
+AIRFLOW_USERNAME=your-airflow-username
+AIRFLOW_PASSWORD=your-airflow-password
+PROCESS_GMAIL_DAG_ID=gmail_download_and_parse_l1
+
+# Airflow Web UI Credentials
+_AIRFLOW_WWW_USER_USERNAME=your-airflow-username
+_AIRFLOW_WWW_USER_PASSWORD=your-airflow-password
+
+# Project directory
+AIRFLOW_PROJ_DIR=.
+
+# File ownership
+AIRFLOW_UID=1000
+AIRFLOW_GID=0
+
+# DAGs, Plugins, Logs
+AIRFLOW_DAGS_DIR=./dags
+AIRFLOW_PLUGINS_DIR=./plugins
+AIRFLOW_LOGS_DIR=./logs
+
+# SQLAlchemy connection string
+AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+
+# Celery result backend (PostgreSQL)
+AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
+
+# Celery broker (Redis)
+AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
+
+# Logging configuration
+AIRFLOW__LOG__WORKER_LOG_SERVER_PORT=8793
+
+# Postgres credentials
+POSTGRES_USER=airflow
+POSTGRES_PASSWORD=airflow
+POSTGRES_DB=airflow
+
+# OpenAI API Key
+OPENAI_API_KEY=your-open-ai-key
+
+# ChromeDriver path
+CHROME_BIN=/usr/bin/google-chrome
+CHROMEDRIVER_BIN=/usr/bin/chromedriver
+
+# Data Path
+DATA_PATH=/opt/airflow/tmp
+```
+#### GOOGLE_CREDENTIALS
+```
+Enable the Gmail VM and download the OAuth2 Credentials
+```
 
 Update the project id and other details in the deploy script and action.
 
-### Stage 2: 
+### Stage 2: Set up action runners on the GCP VM
+- SSH into the configured VM
+- Follow the instructions on this page https://github.com/{your-username}/press-release-summerizer/settings/actions/runners/new?arch=x64&os=linux
+
+
+### Stage 3: Deploy the Service
+
+> Workflow: `.github/workflows/deploy-on-vm.yml`
+
+Run this workflow to deploy Airflow and Watcher Service
+
+### Stage 4: Validate the deployment
+
+- SSH into the VM and run `docker ps`, check for the health of all the dockers.
+- Visit <YOUR-EXTERNAL-IP:8080> to access the Airflow UI.
 
 ---
 

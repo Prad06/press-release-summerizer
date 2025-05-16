@@ -1,0 +1,78 @@
+name: Deploy on VM for Press Release Summarizer
+on:
+  workflow_dispatch:
+jobs:
+  setup-environment:
+    name: Setup Environment on VM
+    runs-on: self-hosted
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+      
+    - name: Setup environment variables
+      run: |
+        # Create environment files from secrets
+        echo "${{ secrets.WATCHER }}" > watcher.env
+        echo "${{ secrets.AIRFLOW }}" > airflow.env
+        echo "${{ secrets.GOOGLE_CREDENTIALS }}" > credentials.json
+        echo "${{ secrets.GCP_SA_KEY }}" > google_sa.json
+      
+    - name: Install required software
+      run: |
+        echo "Installing required software..."
+        sudo apt-get update
+        sudo apt-get install -y docker.io docker-compose unzip curl gnupg wget
+        
+        # Install Google Chrome
+        echo "Installing Google Chrome..."
+        wget -q -O google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        sudo apt install -y ./google-chrome.deb
+        rm google-chrome.deb
+      
+    - name: Clone repository
+      run: |
+        echo "Cloning repository..."
+        # Check if repository already exists
+        if [ ! -d "$HOME/press-release-summerizer" ]; then
+          git clone https://github.com/Prad06/press-release-summerizer.git $HOME/press-release-summerizer
+        else
+          echo "Repository already exists, updating..."
+          cd $HOME/press-release-summerizer
+          git pull
+        fi
+      
+    - name: Setup project structure and permissions
+      run: |
+        echo "Setting up project structure and permissions..."
+        mkdir -p $HOME/press-release-summerizer/airflow/downloads
+        chmod 777 $HOME/press-release-summerizer/airflow/downloads
+        
+        # Setup environment files
+        echo "Setting up environment files..."
+        cp watcher.env $HOME/press-release-summerizer/.env
+        
+        mkdir -p $HOME/press-release-summerizer/airflow/
+        cp airflow.env $HOME/press-release-summerizer/airflow/.env
+        
+        mkdir -p $HOME/press-release-summerizer/config/
+        cp credentials.json $HOME/press-release-summerizer/config/credentials.json
+        cp google_sa.json $HOME/press-release-summerizer/config/google_sa.json
+        
+    - name: Cleanup
+      run: |
+        echo "Cleaning up temporary files..."
+        rm -f watcher.env airflow.env credentials.json google_sa.json
+        
+    - name: Display completion message
+      run: |
+        echo "========================================"
+        echo "Environment setup completed successfully"
+        echo "========================================"
+        
+        # Display some system information
+        echo "System information:"
+        echo "  - Hostname: $(hostname)"
+        echo "  - IP Address: $(hostname -I | awk '{print $1}')"
+        echo "  - Docker version: $(docker --version)"
+        echo "  - Docker Compose version: $(docker-compose --version)"
+        echo "  - Chrome version: $(google-chrome --version)"
