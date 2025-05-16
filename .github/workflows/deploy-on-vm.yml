@@ -6,6 +6,10 @@ jobs:
     name: Setup Environment on VM
     runs-on: self-hosted
     steps:
+    - name: Set up directory permissions
+      run: |
+        sudo chown -R $(whoami):$(whoami) ${{ github.workspace }}
+        sudo chmod -R 755 ${{ github.workspace }}
     - name: Checkout repo
       uses: actions/checkout@v3
 
