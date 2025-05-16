@@ -71,7 +71,7 @@ jobs:
     - name: Docker Compose Up for Airflow
       run: |
         cd $HOME/airflow
-        sudo docker compose --build
+        sudo docker compose build
         sudo docker compose run airflow-init
         sudo docker compose up -d
 
@@ -80,7 +80,7 @@ jobs:
     - name: Docker Compose Up for Watcher
       run: |
         cd $HOME
-        sudo docker compose --build
+        sudo docker compose build
         sudo docker compose up -d
 
         echo "Watcher is getting ready..."
