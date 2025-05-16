@@ -52,12 +52,16 @@ jobs:
         json: ${{ secrets.GCP_SA_KEY }}
         dir: "config/"
 
+    - name: Clean up old docker containers
+      run: |
+        sudo docker system prune -a --volumes -f
+
     - name: Copy all the files to the VM
       run: |
         sudo mkdir -p $HOME/press-release-summarizer
         sudo cp -r ${{ github.workspace }}/* $HOME/press-release-summarizer/
         sudo chown -R $(whoami):$(whoami) $HOME/press-release-summarizer/*
-        sudo chmod -R 755 $HOME/press-release-summarizer/*
+        sudo chmod -R 777 $HOME/press-release-summarizer/*
 
     - name: Create .env files in final destination
       run: |
