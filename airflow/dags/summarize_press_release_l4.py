@@ -351,7 +351,6 @@ def summarize_release(**context):
             
             # Add to successful entries
             successful_entries.append({
-                successful_entries.append({
                     "msg_id": msg_id,
                     "release_timestamp": release_timestamp,
                     "email_summary": summaries["email_summary"],
@@ -368,7 +367,6 @@ def summarize_release(**context):
                     "pdf_count": pdf_stats["total"],
                     "analyzed_pdf_count": pdf_stats["analyzed"],
                     "page_summary": summaries["full_summary"]
-                })
             })
             successful_count += 1
 
