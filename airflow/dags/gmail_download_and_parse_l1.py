@@ -28,7 +28,7 @@ def write_file(path: str, data: bytes, mode: str = "wb"):
 
 def save_l0(**context):
     """
-    Fetch raw emails and save to {DATA_PATH}/l0/<message_id>/email.eml.
+    Fetch raw emails and save to {DATA_PATH}/<message_id>/l0/email.eml.
     Push successful message_ids to XCom under 'l0_successful_ids'.
     """
     email_address = context["params"]["email_address"]
@@ -48,11 +48,11 @@ def save_l0(**context):
                 raise ValueError("No raw content in email.")
 
             raw_bytes = base64.urlsafe_b64decode(email["raw"])
-            eml_path = f"{DATA_PATH}/l0/{message_id}/email.eml"
+            eml_path = f"{DATA_PATH}/{message_id}/l0/email.eml"
             write_file(eml_path, raw_bytes)
 
             retrieved_timestamp = datetime.now().astimezone().isoformat()
-            ts_path = f"{DATA_PATH}/l0/{message_id}/ts.json"
+            ts_path = f"{DATA_PATH}/{message_id}/l0/ts.json"
             write_file(ts_path, json.dumps({"retrieved_timestamp": retrieved_timestamp}, indent=2).encode("utf-8"))
 
             logger.info(f"Saved L0 email to {eml_path}")
@@ -75,13 +75,13 @@ def parse_and_save_l1(**context):
 
     for message_id in l0_successful_ids:
         try:
-            eml_path = f"{DATA_PATH}/l0/{message_id}/email.eml"
+            eml_path = f"{DATA_PATH}/{message_id}/l0/email.eml"
             with open(eml_path, "rb") as f:
                 raw_bytes = f.read()
 
             parsed = parse_eml_to_model(raw_bytes)
 
-            json_path = f"{DATA_PATH}/l1/{message_id}/email.json"
+            json_path = f"{DATA_PATH}/{message_id}/l1/email.json"
             write_file(
                 json_path,
                 json.dumps(parsed.model_dump(), indent=2, default=str).encode("utf-8")

@@ -37,7 +37,7 @@ def filter_candidate_links(**context):
     blacklist_keywords = [
         "mailto:", "unsubscribe", "privacy", "contact", "about", 
         "facebook.com", "linkedin.com", "instagram.com",
-        "youtube.com", "#", "login", "signin", "terms", "legal"
+        "youtube.com", "#", "login", "signin", "terms", "legal", "support"
     ]
 
     press_patterns = [
@@ -49,7 +49,7 @@ def filter_candidate_links(**context):
 
     for msg_id in message_ids:
         try:
-            input_path = f"{DATA_PATH}/l1/{msg_id}/email.json"
+            input_path = f"{DATA_PATH}/{msg_id}/l1/email.json"
             with open(input_path, "r") as f:
                 email_json = json.load(f)
                 links = email_json.get("links", [])
@@ -226,7 +226,7 @@ def write_results_to_disk(**context):
     """
     Write selected link results and LLM debug info to disk.
 
-    - Output folder: {DATA_PATH}/l2/<message_id>/
+    - Output folder: {DATA_PATH}/<message_id>/l2
     - Files:
         - selected_link.json
         - debug_info.json
@@ -241,7 +241,7 @@ def write_results_to_disk(**context):
 
     for msg_id, data in final_results.items():
         try:
-            l2_dir = f"{DATA_PATH}/l2/{msg_id}"
+            l2_dir = f"{DATA_PATH}/{msg_id}/l2"
             os.makedirs(l2_dir, exist_ok=True)
 
             selected_link_path = f"{l2_dir}/selected_link.json"

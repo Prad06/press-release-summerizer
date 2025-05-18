@@ -111,11 +111,11 @@ def load_data_sources(base_path, msg_id):
     """
     try:
         # Load all data sources
-        l0 = read_json(f"{base_path}/l0/{msg_id}/ts.json")
-        l1 = read_json(f"{base_path}/l1/{msg_id}/email.json")
-        l2 = read_json(f"{base_path}/l2/{msg_id}/selected_link.json")
-        main_text = read_file(f"{base_path}/l3/{msg_id}/main_text.txt")
-        pdf_summary = read_json(f"{base_path}/l3/{msg_id}/pdfs/pdf_summary.json")
+        l0 = read_json(f"{base_path}/{msg_id}/l0/ts.json")
+        l1 = read_json(f"{base_path}/{msg_id}/l1/email.json")
+        l2 = read_json(f"{base_path}/{msg_id}/l2/selected_link.json")
+        main_text = read_file(f"{base_path}/{msg_id}/l3/main_text.txt")
+        pdf_summary = read_json(f"{base_path}/{msg_id}/l3/pdfs/pdf_summary.json")
         
         return {
             "l0": l0,
@@ -280,7 +280,7 @@ def save_outputs(base_path, msg_id, metadata, summaries, release_timestamp, pdf_
     :param pdf_stats: Dictionary with PDF statistics
     :return: Summary timestamp
     """
-    out_dir = f"{base_path}/l4/{msg_id}"
+    out_dir = f"{base_path}/{msg_id}/l4"
     os.makedirs(out_dir, exist_ok=True)
     
     summary_ts = datetime.now(eastern_tz).strftime("%Y-%m-%d %H:%M:%S %Z")
@@ -324,7 +324,7 @@ def summarize_release(**context):
     """
 
     extraction_summary = context["params"].get("extraction_summary", {})
-    chat = Chat(ChatConfig(model="gpt-4o", temperature=0, max_tokens=1024))
+    chat = Chat(ChatConfig(model="gpt-4o", temperature=0, max_tokens=2048))
     tokenizer = tiktoken.encoding_for_model("gpt-4o")
     
     successful_count = 0

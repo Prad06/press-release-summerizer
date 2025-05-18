@@ -78,7 +78,7 @@ def extract_html_with_selenium(**context):
             html_contents[msg_id] = html
             actual_urls[msg_id] = actual_url
             
-            os.makedirs(f"{DATA_PATH}/l3/{msg_id}", exist_ok=True)
+            os.makedirs(f"{DATA_PATH}/{msg_id}/l3", exist_ok=True)
         except Exception as e:
             logger.error(f"Failed to fetch HTML for {msg_id}: {e}")
 
@@ -141,7 +141,7 @@ def process_and_save_extractions(**context):
             main_text = extract_main_text(html)
             pdf_links = extract_pdf_links(soup)
 
-            output_dir = f"{DATA_PATH}/l3/{msg_id}"
+            output_dir = f"{DATA_PATH}/{msg_id}/l3"
             os.makedirs(output_dir, exist_ok=True)
 
             with open(f"{output_dir}/raw.html", "w", encoding="utf-8") as f:
