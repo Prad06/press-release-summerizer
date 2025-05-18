@@ -10,13 +10,9 @@ jobs:
       run: |
         sudo chown -R $(whoami):$(whoami) ${{ github.workspace }}
         sudo chmod -R 755 ${{ github.workspace }}
+
     - name: Checkout repo
       uses: actions/checkout@v3
-
-    - name: Checkout code
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
 
     - name: Install Docker, Compose, and Chrome
       run: |
@@ -30,13 +26,17 @@ jobs:
 
         sudo systemctl enable docker
         sudo systemctl start docker
+        sleep 10  # Wait for Docker to fully start
 
-    - name: Make config directory
+    - name: Create required directories
       run: |
         sudo mkdir -p config
-        sudo chown -R $(whoami) config
+        sudo mkdir -p $HOME/press-release-summarizer/airflow/{logs,plugins,downloads}
+        sudo chown -R $(whoami):$(whoami) config
+        sudo chown -R $(whoami):$(whoami) $HOME/press-release-summarizer
+        sudo chmod -R 777 $HOME/press-release-summarizer/airflow/{logs,plugins,downloads}
 
-    - name: Create dynamic credentials.json file
+    - name: Create dynamic credentials files
       id: create-json-1
       uses: jsdaniell/create-json@v1.2.3
       with:
@@ -56,48 +56,45 @@ jobs:
       run: |
         sudo docker system prune -a --volumes -f
 
-    - name: Copy all the files to the VM
+    - name: Copy files to the VM
       run: |
         sudo mkdir -p $HOME/press-release-summarizer
         sudo cp -r ${{ github.workspace }}/* $HOME/press-release-summarizer/
         sudo chown -R $(whoami):$(whoami) $HOME/press-release-summarizer/*
         sudo chmod -R 777 $HOME/press-release-summarizer/*
 
-    - name: Create .env files in final destination
+    - name: Create .env files
       run: |
-        sudo chown -R $(whoami) $HOME/press-release-summarizer
         echo "${{ secrets.WATCHER_ENV }}" > $HOME/press-release-summarizer/.env
-        echo "${{ secrets.AIRFLOW_ENV }}" > $HOME/press-release-summarizer/airflow/.env    
+        echo "${{ secrets.AIRFLOW_ENV }}" > $HOME/press-release-summarizer/airflow/.env
+        chmod 644 $HOME/press-release-summarizer/.env
+        chmod 644 $HOME/press-release-summarizer/airflow/.env
 
-
-    - name: Create a download directory
-      run: |
-        sudo mkdir -p $HOME/press-release-summarizer/airflow/downloads
-        sudo chown -R $(whoami):$(whoami) $HOME/press-release-summarizer/airflow/downloads
-
-    - name: Docker Compose Up for Airflow
+    - name: Initialize Airflow
       run: |
         cd $HOME/press-release-summarizer/airflow
         sudo docker-compose build
-        sudo docker-compose run airflow-init
+        sudo docker-compose up airflow-init
         sudo docker-compose up -d
+        echo "Waiting for Airflow to initialize..."
+        sleep 30
 
-        echo "Airflow is getting ready..."
-    
-    - name: Docker Compose Up for Watcher
+    - name: Health Check for Airflow
+      run: |
+        for i in {1..10}; do
+          if curl -s http://localhost:8080/health; then
+            echo "Airflow is healthy!"
+            exit 0
+          fi
+          echo "Waiting for Airflow to be healthy... Attempt $i"
+          sleep 10
+        done
+        echo "Airflow health check failed"
+        exit 1
+
+    - name: Start Watcher Service
       run: |
         cd $HOME/press-release-summarizer
         sudo docker-compose build
         sudo docker-compose up -d
-
         echo "Watcher is getting ready..."
-
-    - name: Health Check for Airflow
-      run: |
-        sleep 30
-        while ! curl -s http://localhost:8080/health; do
-          echo "Waiting for Airflow to be healthy..."
-          sleep 5
-        done
-        echo "Airflow is healthy!"
-
