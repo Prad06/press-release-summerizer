@@ -50,28 +50,44 @@ def extract_html_with_selenium(**context):
     logger.info("Starting extract_html_with_selenium")
     message_links = context["params"].get("message_links", {})
     ti = context["ti"]
-
+    
     chrome_path = os.environ.get("CHROME_BIN")
     chromedriver_path = os.environ.get("CHROMEDRIVER_BIN")
-
-    options = Options()
-    options.binary_location = chrome_path
-    options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("user-agent=Mozilla/5.0")
-
-    service = Service(executable_path=chromedriver_path)
-    driver = webdriver.Chrome(service=service, options=options)
-
+    
     html_contents = {}
     actual_urls = {}
-
+    
     for msg_id, url in message_links.items():
+        user_data_dir = f"/tmp/chrome_user_data_{msg_id}"
+        driver = None
+        
         try:
+            options = Options()
+            options.binary_location = chrome_path
+            options.add_argument("--headless")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--window-size=1920,1080")
+            options.add_argument("user-agent=Mozilla/5.0")
+            options.add_argument(f"--user-data-dir={user_data_dir}")
+            options.add_argument(f"--disk-cache-dir=/tmp/chrome_cache_{msg_id}")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-extensions")
+            options.add_argument("--disable-application-cache")
+            options.add_argument("--disable-sync")
+            options.add_argument("--incognito")
+            
+            service = Service(executable_path=chromedriver_path)
+            
+            logger.info(f"Creating Chrome instance for {msg_id}")
+            driver = webdriver.Chrome(service=service, options=options)
+            
             logger.info(f"Fetching HTML for {msg_id} from {url}")
             driver.get(url)
+            
+            import time
+            time.sleep(2)
+            
             html = driver.page_source
             actual_url = driver.current_url
             
@@ -79,16 +95,37 @@ def extract_html_with_selenium(**context):
             actual_urls[msg_id] = actual_url
             
             os.makedirs(f"{DATA_PATH}/{msg_id}/l3", exist_ok=True)
+            
+            with open(f"{DATA_PATH}/{msg_id}/l3/raw.html", "w", encoding="utf-8") as f:
+                f.write(html)
+                
+            logger.info(f"Successfully fetched HTML for {msg_id}")
+            
         except Exception as e:
             logger.error(f"Failed to fetch HTML for {msg_id}: {e}")
-
-    driver.quit()
-    logger.info("Selenium driver closed.")
+        finally:
+            try:
+                if driver:
+                    driver.quit()
+                    logger.info(f"Selenium driver closed for {msg_id}.")
+            except Exception as e:
+                logger.warning(f"Error closing Selenium driver for {msg_id}: {e}")
+            
+            try:
+                import shutil
+                shutil.rmtree(user_data_dir, ignore_errors=True)
+                shutil.rmtree(f"/tmp/chrome_cache_{msg_id}", ignore_errors=True)
+                logger.info(f"Temporary Chrome directories cleaned up for {msg_id}.")
+            except Exception as e:
+                logger.warning(f"Failed to clean up temporary directories for {msg_id}: {e}")
     
-    ti.xcom_push(key="html_contents", value=html_contents)
-    ti.xcom_push(key="actual_urls", value=actual_urls)
-    
-    return list(html_contents.keys())
+    if html_contents:
+        ti.xcom_push(key="html_contents", value=html_contents)
+        ti.xcom_push(key="actual_urls", value=actual_urls)
+        return list(html_contents.keys())
+    else:
+        logger.warning("No HTML content was successfully extracted")
+        return []
 
 def extract_main_text(html):
     """
