@@ -76,6 +76,12 @@ class WatcherService:
             if status.get("status") == "error":
                 logger.error(f"Error triggering DAG: {status.get('error')}")
                 return False
+            else:
+                try:
+                    self.db_service.set_email_triggered(message_ids)
+                except Exception as e:
+                    logger.error(f"Error saving triggered emails to database: {e}")
+                    return False
 
         logger.info(f"Processed {len(matched)} matching message(s).")
         return True

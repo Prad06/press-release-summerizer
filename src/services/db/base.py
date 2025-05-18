@@ -2,7 +2,7 @@ import os
 import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
-from .models import GoogleToken, GmailHistory, PressReleaseSummary
+from .models import GoogleToken, GmailHistory, PressReleaseSummary, EmailsTriggered
 import logging
 import json
 
@@ -167,3 +167,21 @@ class DBService:
         finally:
             session.close()
 
+    def set_email_triggered(self, message_id):
+        """
+        Mark an email as triggered in the database.
+
+        :param message_id: Unique identifier for the email
+        """
+        session = self.get_session()
+        try:
+            email_triggered = EmailsTriggered(message_id=message_id)
+            session.add(email_triggered)
+            session.commit()
+            logger.info(f"Email with message ID {message_id} marked as triggered.")
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error marking email as triggered: {e}")
+            raise
+        finally:
+            session.close()

@@ -35,6 +35,8 @@ class GmailHistory(Base):
 
 
 class PressReleaseSummary(Base):
+    """Model for storing press release summaries"""
+
     __tablename__ = 'press_release_summaries'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -54,3 +56,15 @@ class PressReleaseSummary(Base):
     analyzed_pdf_count = Column(Integer)
     page_summary = Column(Text)
     email_summary = Column(Text)
+
+class EmailsTriggered(Base):
+        """Model for tracking triggered emails"""
+        
+        __tablename__ = 'emails_triggered'
+        
+        id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+        message_id = Column(Text, nullable=False, unique=True)
+        created_at = Column(DateTime, server_default=func.now())
+
+        def __repr__(self):
+            return f"<EmailsTriggered(message_id='{self.message_id}')>"

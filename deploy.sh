@@ -32,6 +32,17 @@ gcloud compute firewall-rules create allow-airflow-8080 \
     --source-ranges=0.0.0.0/0 \
     --target-tags=http-server
 
+echo "Creating firewall rule for File System on 8090..."
+gcloud compute firewall-rules create allow-filesystem \
+    --project=inbox-ai-456015 \
+    --direction=INGRESS \
+    --priority=1000 \
+    --network=default \
+    --action=ALLOW \
+    --rules=tcp:8090 \
+    --source-ranges=0.0.0.0/0 \
+    --target-tags=http-server
+
 echo "Waiting for VM to initialize..."
 sleep 45
 
