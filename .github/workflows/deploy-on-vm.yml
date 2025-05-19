@@ -99,7 +99,7 @@ jobs:
         sudo docker-compose up -d
         echo "Watcher is getting ready..."
 
-        - name: Install and run filebrowser
+    - name: Install and run filebrowser
       run: |
         curl -fsSL https://raw.githubusercontent.com/filebrowser/get/master/get.sh | bash
         nohup filebrowser -a 0.0.0.0 -p 8090 -r $HOME/press-release-summarizer -d $HOME/filebrowser.db > $HOME/filebrowser.log 2>&1 &
